@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# TradeBot Raspberry Pi Installation Script
+# Trade_Bot Raspberry Pi Installation Script
 # This script will install and configure the RSI->GPT->Alpaca Trading Bot
-# Run with: curl -sSL https://raw.gi    # TAAPI Key
+# Run with: curl -sSL https://raw.githubusercontent.com/Defectuous/Trade_Bot/main/install_tradebot.sh | bash    # TAAPI Key
     echo -e "${BLUE}TAAPI.io Configuration:${NC}"
     echo "Visit https://taapi.io to get your API key (~\$15/month subscription required)"
     read -p "Enter your TAAPI API key: " taapi_key
@@ -21,7 +21,8 @@
     
     read -p "Enter OpenAI model [gpt-3.5-turbo]: " openai_model
     openai_model=${openai_model:-gpt-3.5-turbo}
-    run_as_tradebot "cd $INSTALL_DIR && sed -i 's/OPENAI_MODEL=gpt-3.5-turbo/OPENAI_MODEL=$openai_model/' .env"Defectuous/Trade_Bot/main/install_tradebot.sh | bash
+    run_as_tradebot "cd $INSTALL_DIR && sed -i 's/OPENAI_MODEL=gpt-3.5-turbo/OPENAI_MODEL=$openai_model/' .env"
+    echo
 
 set -e  # Exit on any error
 
@@ -38,7 +39,7 @@ TRADEBOT_USER="tradebot"
 INSTALL_DIR="/home/$TRADEBOT_USER/Trade_Bot"
 SERVICE_NAME="trade_bot.service"
 
-echo -e "${BLUE}🚀 TradeBot Raspberry Pi Installation Script${NC}"
+echo -e "${BLUE}🚀 Trade_Bot Raspberry Pi Installation Script${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo -e "${YELLOW}This script will create a dedicated user account for security${NC}"
 

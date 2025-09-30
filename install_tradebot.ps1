@@ -1,12 +1,12 @@
-# TradeBot Windows Installation Script
+# Trade_Bot Windows Installation Script
 # This script will install and configure the AI Trading Bot with dedicated user account
 # Run as Administrator: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 # Then run: .\install_tradebot.ps1
 
 param(
     [string]$TradeBotUser = "tradebot",
-    [string]$InstallPath = "C:\TradeBot",
-    [string]$GitHubRepo = "https://github.com/Defectuous/TradeBot.git"
+    [string]$InstallPath = "C:\Trade_Bot",
+    [string]$GitHubRepo = "https://github.com/Defectuous/Trade_Bot.git"
 )
 
 # Colors for output
@@ -35,7 +35,7 @@ function Write-Info {
     Write-Host "ℹ $Message" -ForegroundColor $InfoColor
 }
 
-Write-Host "🚀 TradeBot Windows Installation Script" -ForegroundColor $InfoColor
+Write-Host "🚀 Trade_Bot Windows Installation Script" -ForegroundColor $InfoColor
 Write-Host "=======================================" -ForegroundColor $InfoColor
 Write-Host "This script will create a dedicated user account for security" -ForegroundColor $WarningColor
 Write-Host ""
@@ -103,11 +103,11 @@ try {
     exit 1
 }
 
-Write-Host "Step 3: Installing TradeBot from GitHub..." -ForegroundColor $WarningColor
+Write-Host "Step 3: Installing Trade_Bot from GitHub..." -ForegroundColor $WarningColor
 
 # Create install directory
 if (Test-Path $InstallPath) {
-    Write-Warning "TradeBot directory already exists at $InstallPath"
+    Write-Warning "Trade_Bot directory already exists at $InstallPath"
     $reinstall = Read-Host "Do you want to remove it and reinstall? (y/n)"
     if ($reinstall -eq "y" -or $reinstall -eq "Y") {
         Remove-Item -Path $InstallPath -Recurse -Force
@@ -116,7 +116,7 @@ if (Test-Path $InstallPath) {
 }
 
 if (-not (Test-Path $InstallPath)) {
-    Write-Info "Cloning TradeBot repository..."
+    Write-Info "Cloning Trade_Bot repository..."
     git clone $GitHubRepo $InstallPath
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to clone repository"
@@ -132,7 +132,7 @@ $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($Tra
 $acl.SetAccessRule($accessRule)
 Set-Acl -Path $InstallPath -AclObject $acl
 
-Write-Status "TradeBot repository ready"
+Write-Status "Trade_Bot repository ready"
 
 Write-Host "Step 4: Setting up Python virtual environment..." -ForegroundColor $WarningColor
 
@@ -250,7 +250,7 @@ $serviceScriptPath = Join-Path $InstallPath "run_tradebot.bat"
 $serviceScript | Out-File -FilePath $serviceScriptPath -Encoding ASCII
 
 Write-Info "Creating Windows Service..."
-$serviceName = "TradeBot"
+$serviceName = "Trade_Bot"
 $serviceDisplayName = "AI Trading Bot Service"
 $serviceDescription = "Advanced AI Trading Bot with 6-Indicator Analysis"
 
@@ -264,9 +264,9 @@ if ($existingService) {
 
 # Create new service using NSSM (Non-Sucking Service Manager) approach
 # For now, create a scheduled task instead
-Write-Info "Creating scheduled task for TradeBot..."
+Write-Info "Creating scheduled task for Trade_Bot..."
 
-$taskName = "TradeBot"
+$taskName = "Trade_Bot"
 $taskDescription = "AI Trading Bot - Runs every minute during market hours"
 
 # Remove existing task
