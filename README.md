@@ -288,7 +288,7 @@ sudo systemctl disable trade_bot.service
 sudo journalctl -u trade_bot.service -f
 
 # Edit configuration as tradebot user
-sudo -u tradebot nano /home/tradebot/TradeBot/.env
+sudo -u tradebot nano /home/tradebot/Trade_Bot/.env
 ```
 
 **Windows (scheduled task):**
@@ -302,7 +302,7 @@ Get-ScheduledTask -TaskName "TradeBot"
 Get-ScheduledTaskInfo -TaskName "TradeBot"
 
 # Edit configuration
-notepad C:\TradeBot\.env
+notepad C:\Trade_Bot\.env
 ```
 
 ### 🔒 Security Features
@@ -328,8 +328,8 @@ sudo apt install -y python3 python3-venv python3-pip git
 
 2. **Clone repository:**
 ```bash
-git clone https://github.com/Defectuous/TradeBot.git
-cd TradeBot
+git clone https://github.com/Defectuous/Trade_Bot.git
+cd Trade_Bot
 ```
 
 3. **Create virtual environment:**
@@ -357,8 +357,8 @@ nano .env  # Add your API keys
 
 2. **Clone repository:**
 ```powershell
-git clone https://github.com/Defectuous/TradeBot.git
-cd TradeBot
+git clone https://github.com/Defectuous/Trade_Bot.git
+cd Trade_Bot
 ```
 
 3. **Create virtual environment:**
@@ -436,10 +436,10 @@ DISCORD_WEBHOOK_URL=your_discord_webhook_url_here
 **Test with dry run:**
 ```bash
 # Linux
-sudo -u tradebot bash -c 'cd /home/tradebot/TradeBot && source .venv/bin/activate && python trade_bot.py'
+sudo -u tradebot bash -c 'cd /home/tradebot/Trade_Bot && source .venv/bin/activate && python trade_bot.py'
 
 # Windows  
-cd C:\TradeBot
+cd C:\Trade_Bot
 .\.venv\Scripts\Activate.ps1
 python trade_bot.py
 ```
@@ -501,8 +501,8 @@ sudo apt install -y python3 python3-venv python3-pip git
 
 2. **Clone and setup:**
 ```bash
-git clone https://github.com/Defectuous/TradeBot.git
-cd TradeBot
+git clone https://github.com/Defectuous/Trade_Bot.git
+cd Trade_Bot
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -540,9 +540,9 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/TradeBot
-EnvironmentFile=/home/pi/TradeBot/.env
-ExecStart=/home/pi/TradeBot/.venv/bin/python /home/pi/TradeBot/trade_bot.py
+WorkingDirectory=/home/pi/Trade_Bot
+EnvironmentFile=/home/pi/Trade_Bot/.env
+ExecStart=/home/pi/Trade_Bot/.venv/bin/python /home/pi/Trade_Bot/trade_bot.py
 Restart=on-failure
 RestartSec=30s
 
