@@ -230,10 +230,10 @@ Choose the appropriate installation script for your operating system:
 **Installation:**
 ```bash
 # Download and run the installation script
-curl -sSL https://raw.githubusercontent.com/Defectuous/TradeBot/main/install_tradebot.sh | bash
+curl -sSL https://raw.githubusercontent.com/Defectuous/Trade_Bot/main/install_tradebot.sh | bash
 
 # Or download and inspect first (recommended)
-wget https://raw.githubusercontent.com/Defectuous/TradeBot/main/install_tradebot.sh
+wget https://raw.githubusercontent.com/Defectuous/Trade_Bot/main/install_tradebot.sh
 chmod +x install_tradebot.sh
 ./install_tradebot.sh
 ```
@@ -266,7 +266,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 3. **Download and run the installation script**:
 ```powershell
 # Download the script
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Defectuous/TradeBot/main/install_tradebot.ps1" -OutFile "install_tradebot.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Defectuous/Trade_Bot/main/install_tradebot.ps1" -OutFile "install_tradebot.ps1"
 
 # Run the installation
 .\install_tradebot.ps1
