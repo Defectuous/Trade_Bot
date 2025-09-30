@@ -1,18 +1,16 @@
 import pytest
 from decimal import Decimal
 
-from modules.alpaca_rsi import compute_rsi_from_closes
-from modules.gpt_client import ask_gpt_for_decision_extended
+from modules.gpt_client import ask_gpt_for_decision
 from modules.alpaca_client import get_owned_positions
 
 
-def test_compute_rsi_simple():
-    # Construct a sequence of prices that will result in a known RSI
-    closes = [44.34,44.09,44.15,43.61,44.33,44.83,45.10,45.42,45.84,46.08,45.89,46.03,45.61,46.28,46.28]
-    # Using period=14, these are the first 15 closes from classic RSI example; ensure function runs
-    rsi = compute_rsi_from_closes(closes, period=14)
-    assert isinstance(rsi, Decimal)
-    assert rsi >= 0 and rsi <= 100
+def test_taapi_integration():
+    """Test that TAAPI module functions are available."""
+    from modules.taapi import fetch_rsi_taapi, fetch_all_indicators
+    # Just test that functions are importable
+    assert callable(fetch_rsi_taapi)
+    assert callable(fetch_all_indicators)
 
 
 class DummyOpenAIClient:

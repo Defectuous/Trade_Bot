@@ -13,9 +13,10 @@ from datetime import datetime, time as dtime, timedelta
 from decimal import Decimal
 
 import pytz
+import requests
 from dotenv import load_dotenv
 
-from modules.taapi import fetch_rsi_taapi
+from modules.taapi import fetch_rsi_taapi, fetch_all_indicators
 from modules.gpt_client import ask_gpt_for_decision
 from modules.alpaca_client import (
     connect_alpaca,
@@ -27,6 +28,11 @@ from modules.alpaca_client import (
     owns_at_least,
 )
 from modules.market_schedule import in_market_hours
+from modules.discord_webhook import (
+    send_trading_day_summary,
+    send_trade_notification,
+    get_discord_webhook_url,
+)
 
 load_dotenv()
 
@@ -43,6 +49,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 ALPACA_API_KEY = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY")
 ALPACA_BASE_URL = os.environ.get("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+DISCORD_WEBHOOK_URL = get_discord_webhook_url()
 
 # Trading configuration
 SYMBOL = os.environ.get("SYMBOL", "AAPL")
@@ -52,7 +59,14 @@ if SYMBOLS_ENV:
 else:
     SYMBOLS = [SYMBOL]
 
-QTY = int(os.environ.get("QTY", "1"))
+QTY_ENV = os.environ.get("QTY", "1")
+try:
+    # Support both integer and fractional QTY values
+    QTY = Decimal(QTY_ENV)
+    logger.info("Configured default QTY: %s shares", QTY)
+except Exception:
+    QTY = Decimal("1")
+    logger.warning("Invalid QTY value '%s', using default QTY=1", QTY_ENV)
 DRY_RUN = os.environ.get("DRY_RUN", "true").lower() in ("1", "true", "yes")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo")
 
@@ -126,6 +140,30 @@ def fetch_rsi(symbol: str) -> Decimal:
     return val
 
 
+def fetch_all_technical_indicators(symbol: str) -> dict:
+    """Fetch all technical indicators for enhanced trading analysis."""
+    indicators = fetch_all_indicators(symbol, TAAPI_KEY)
+    if not indicators:
+        raise RuntimeError("Failed to fetch technical indicators from TAAPI")
+    
+    # Count valid indicators
+    valid_count = sum(1 for v in indicators.values() if v is not None and v != 'N/A')
+    total_count = len(indicators)
+    
+    logger.info("Technical indicators for %s: %d/%d valid indicators retrieved", 
+               symbol, valid_count, total_count)
+    
+    # Only log details if at least one indicator is valid
+    if valid_count > 0:
+        valid_indicators = []
+        for name, value in indicators.items():
+            if value is not None and value != 'N/A':
+                valid_indicators.append(f"{name.upper()}={value}")
+        logger.debug("Valid indicators for %s: %s", symbol, ', '.join(valid_indicators))
+    
+    return indicators
+
+
 def _execute_buy_order(api, symbol: str, amount: Decimal, price: Decimal):
     """Execute a buy order with proper logging and validation."""
     try:
@@ -146,6 +184,12 @@ def _execute_buy_order(api, symbol: str, amount: Decimal, price: Decimal):
 
         # Determine qty to buy: prefer GPT-provided amount, else use configured QTY
         qty_to_buy = QTY if amount is None else amount
+        
+        # Log the decision source for transparency
+        if amount is not None:
+            logger.info("Using GPT-recommended quantity: %s shares for %s", amount, symbol)
+        else:
+            logger.info("Using configured default quantity: %s shares for %s", QTY, symbol)
 
         # Ensure qty_to_buy is numeric
         try:
@@ -156,9 +200,28 @@ def _execute_buy_order(api, symbol: str, amount: Decimal, price: Decimal):
             except Exception:
                 qty_numeric = Decimal(0)
 
+        # Safety check: Cap order to available cash (prevent GPT over-recommendations)
+        if price is not None and qty_numeric > 0:
+            try:
+                current_cash = get_wallet_amount(api, "cash")
+                max_affordable_shares = current_cash / price
+                
+                if qty_numeric > max_affordable_shares:
+                    logger.warning("GPT recommended %s shares ($%s), but only $%s available. Capping to %s shares ($%s)", 
+                                 qty_numeric, qty_numeric * price, current_cash, 
+                                 max_affordable_shares, max_affordable_shares * price)
+                    qty_numeric = max_affordable_shares
+                    
+                    # Update the decision source logging
+                    logger.info("Using cash-limited quantity: %s shares for %s (GPT recommended %s)", 
+                               qty_numeric, symbol, qty_to_buy)
+            except Exception as e:
+                logger.warning("Could not verify cash limits: %s", e)
+
         # Check buying power using the last trade price if available
         if price is not None and qty_numeric > 0:
-            if not can_buy(api, price, int(qty_numeric) if qty_numeric == qty_numeric.to_integral_value() else float(qty_numeric)):
+            # Pass qty_numeric directly - can_buy now supports both int and float
+            if not can_buy(api, price, qty_numeric):
                 logger.info("Insufficient buying power to buy %s %s at %s", qty_numeric, symbol, price)
                 return
 
@@ -169,8 +232,29 @@ def _execute_buy_order(api, symbol: str, amount: Decimal, price: Decimal):
             qty_for_order = float(qty_numeric)
 
         place_order(api, symbol, qty_for_order, "buy")
+        logger.info("✅ BUY order submitted successfully for %s %s", qty_for_order, symbol)
+        
+        # Send Discord notification for buy order
+        if DISCORD_WEBHOOK_URL:
+            send_trade_notification(
+                DISCORD_WEBHOOK_URL, "BUY", symbol, 
+                Decimal(str(qty_for_order)), price
+            )
     except Exception as e:
+        error_msg = str(e)
         logger.exception("Error handling BUY for %s: %s", symbol, e)
+        
+        # Check if it's a server error that might be temporary
+        if any(keyword in error_msg for keyword in ['500', '502', '503', '504', 'Server Error', 'Internal Server Error']):
+            logger.warning("🚨 Alpaca server error detected for BUY order on %s. This is likely temporary - will retry on next trading cycle.", symbol)
+        
+        # Send Discord notification about failed order if webhook is configured
+        if DISCORD_WEBHOOK_URL:
+            try:
+                from modules.discord_webhook import send_error_notification
+                send_error_notification(DISCORD_WEBHOOK_URL, f"❌ BUY order failed for {symbol}", error_msg)
+            except Exception:
+                pass  # Don't let Discord notification failures break the trading loop
 
 
 def _execute_sell_order(api, symbol: str, amount: Decimal):
@@ -215,6 +299,20 @@ def _execute_sell_order(api, symbol: str, amount: Decimal):
             qty_for_order = float(qty_to_sell)
 
         place_order(api, symbol, qty_for_order, "sell")
+        logger.info("✅ SELL order submitted successfully for %s %s", qty_for_order, symbol)
+        
+        # Send Discord notification for sell order
+        if DISCORD_WEBHOOK_URL:
+            # Get current price for notification
+            try:
+                current_price = get_last_trade_price(api, symbol)
+            except Exception:
+                current_price = None
+            
+            send_trade_notification(
+                DISCORD_WEBHOOK_URL, "SELL", symbol,
+                qty_to_sell, current_price
+            )
         
         # Log wallet amounts after SELL
         try:
@@ -231,18 +329,38 @@ def _execute_sell_order(api, symbol: str, amount: Decimal):
                    str(cash_after) if cash_after is not None else "<unknown>", 
                    str(pv_after) if pv_after is not None else "<unknown>")
     except Exception as e:
+        error_msg = str(e)
         logger.exception("Error handling SELL for %s: %s", symbol, e)
+        
+        # Check if it's a server error that might be temporary
+        if any(keyword in error_msg for keyword in ['500', '502', '503', '504', 'Server Error', 'Internal Server Error']):
+            logger.warning("🚨 Alpaca server error detected for SELL order on %s. This is likely temporary - will retry on next trading cycle.", symbol)
+        
+        # Send Discord notification about failed order if webhook is configured
+        if DISCORD_WEBHOOK_URL:
+            try:
+                from modules.discord_webhook import send_error_notification
+                send_error_notification(DISCORD_WEBHOOK_URL, f"❌ SELL order failed for {symbol}", error_msg)
+            except Exception:
+                pass  # Don't let Discord notification failures break the trading loop
 
 
 def run_once(api, symbol: str):
-    """Execute one trading cycle for a symbol."""
-    # Fetch RSI
+    """Execute one trading cycle for a symbol using enhanced technical analysis."""
+    # Fetch all technical indicators
     try:
-        rsi = fetch_rsi(symbol)
-        logger.info("RSI for %s = %s", symbol, rsi)
+        indicators = fetch_all_technical_indicators(symbol)
+        logger.info("Enhanced indicators for %s fetched successfully", symbol)
     except Exception as e:
-        logger.exception("Failed to fetch RSI for %s: %s", symbol, e)
-        return
+        logger.exception("Failed to fetch enhanced indicators for %s: %s", symbol, e)
+        # Fallback to RSI-only mode
+        try:
+            rsi = fetch_rsi(symbol)
+            indicators = {'rsi': rsi, 'ma': 'N/A', 'ema': 'N/A', 'pattern': 'N/A', 'adx': 'N/A', 'adxr': 'N/A'}
+            logger.info("Fallback RSI for %s = %s", symbol, rsi)
+        except Exception as e2:
+            logger.exception("Failed to fetch fallback RSI for %s: %s", symbol, e2)
+            return
 
     # Gather trading context
     try:
@@ -258,20 +376,23 @@ def run_once(api, symbol: str):
 
     try:
         wallet_amount = get_wallet_amount(api, "cash")
+        logger.info("Retrieved cash balance for GPT: $%s", wallet_amount)
     except Exception:
         try:
             wallet_amount = get_wallet_amount(api, "buying_power")
+            logger.info("Retrieved buying power for GPT (cash unavailable): $%s", wallet_amount)
         except Exception:
             wallet_amount = Decimal(0)
+            logger.warning("Could not retrieve wallet amount, using $0 for GPT prompt")
 
-    # Get GPT trading decision
+    # Get GPT trading decision using enhanced indicators
     try:
         decision, amount = ask_gpt_for_decision(
-            OPENAI_API_KEY, OPENAI_MODEL, rsi, symbol, shares_owned, 
+            OPENAI_API_KEY, OPENAI_MODEL, indicators, symbol, shares_owned, 
             price if price is not None else Decimal(0), wallet_amount
         )
     except Exception as e:
-        logger.exception("GPT error when called with extended context for %s: %s", symbol, e)
+        logger.exception("GPT error when called with enhanced indicators for %s: %s", symbol, e)
         return
 
     # Execute trading decision
@@ -281,6 +402,41 @@ def run_once(api, symbol: str):
         _execute_sell_order(api, symbol, amount)
     else:
         logger.info("Decision NOTHING for %s — no action taken", symbol)
+
+
+def send_daily_summary(api, day_type: str = "start"):
+    """Send daily trading summary to Discord.
+    
+    Args:
+        api: Alpaca API client
+        day_type: "start" or "end" of trading day
+    """
+    if not DISCORD_WEBHOOK_URL:
+        return
+    
+    try:
+        # Get wallet total
+        try:
+            wallet_total = get_wallet_amount(api, "portfolio_value")
+        except Exception:
+            try:
+                wallet_total = get_wallet_amount(api, "cash")
+            except Exception:
+                wallet_total = Decimal(0)
+        
+        # Get current positions
+        try:
+            positions = get_owned_positions(api)
+        except Exception:
+            positions = {}
+        
+        # Send Discord summary
+        send_trading_day_summary(
+            DISCORD_WEBHOOK_URL, wallet_total, positions, day_type
+        )
+        
+    except Exception as e:
+        logger.exception("Failed to send Discord daily summary: %s", e)
 
 
 def parse_et_time(s: str):
@@ -304,8 +460,20 @@ def main():
     start_time = parse_et_time(sched_start) if sched_start else dtime(hour=9, minute=30)
     end_time = parse_et_time(sched_end) if sched_end else dtime(hour=16, minute=0)
 
+    # Track if we've sent daily summaries
+    sent_start_summary = False
+    sent_end_summary = False
+    last_trading_date = None
+
     while True:
         now = datetime.now(EAST)
+        current_date = now.date()
+
+        # Reset daily summary flags for new trading day
+        if last_trading_date != current_date:
+            sent_start_summary = False
+            sent_end_summary = False
+            last_trading_date = current_date
 
         # If outside the configured schedule window, sleep until the next scheduled start
         today_start = EAST.localize(datetime.combine(now.date(), start_time))
@@ -318,6 +486,11 @@ def main():
             continue
 
         if now > today_end:
+            # Send end-of-day summary if we haven't already
+            if not sent_end_summary and in_market_hours():
+                send_daily_summary(api, "end")
+                sent_end_summary = True
+            
             # Sleep until next day's scheduled start
             next_day = now.date() + timedelta(days=1)
             next_start = EAST.localize(datetime.combine(next_day, start_time))
@@ -332,6 +505,11 @@ def main():
             # Sleep a minute and re-evaluate
             time.sleep(60)
             continue
+
+        # Send start-of-day summary if we haven't already and market just opened
+        if not sent_start_summary:
+            send_daily_summary(api, "start")
+            sent_start_summary = True
 
         # Iterate over configured symbols for this minute
         for sym in SYMBOLS:
