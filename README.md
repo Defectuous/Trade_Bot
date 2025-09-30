@@ -207,134 +207,368 @@ python test_price_methods.py
 
 This will specifically test the updated price fetching methods and show which fallback methods are used.
 
-Raspberry Pi
------------
+## 🚀 Installation Guide
 
-### Quick Installation (Recommended)
+### Automated Installation (Recommended)
 
-Use the automated installation script:
+Choose the appropriate installation script for your operating system:
 
+#### 🐧 **Linux/Raspberry Pi Installation**
+
+**Features:**
+- ✅ Creates dedicated `tradebot` user account for security
+- ✅ Sets up systemd service with security hardening
+- ✅ Configures proper file permissions and access controls
+- ✅ Installs dependencies and virtual environment
+- ✅ Interactive API key configuration
+
+**Requirements:**
+- Linux/Raspberry Pi OS/Debian/Ubuntu
+- Internet connection
+- User with sudo privileges
+
+**Installation:**
 ```bash
 # Download and run the installation script
-curl -sSL https://raw.githubusercontent.com/yourusername/Trade_Bot/main/install_tradebot.sh | bash
+curl -sSL https://raw.githubusercontent.com/Defectuous/TradeBot/main/install_tradebot.sh | bash
 
-# Or download and run locally
-wget https://raw.githubusercontent.com/yourusername/Trade_Bot/main/install_tradebot.sh
+# Or download and inspect first (recommended)
+wget https://raw.githubusercontent.com/Defectuous/TradeBot/main/install_tradebot.sh
 chmod +x install_tradebot.sh
 ./install_tradebot.sh
 ```
 
-The script will:
-- ✅ Update your Raspberry Pi system
-- ✅ Install TradeBot from GitHub
-- ✅ Set up Python environment and dependencies  
-- ✅ Create and configure the systemd service
-- ✅ Prompt for all required API keys
-- ✅ Configure trading settings
+**⚠️ Important:** Do NOT run with `sudo`. The script will prompt for sudo when needed.
+
+#### 🪟 **Windows Installation**
+
+**Features:**
+- ✅ Creates dedicated `tradebot` user account for security
+- ✅ Sets up Windows Scheduled Task for automated execution
+- ✅ Configures proper file permissions and access controls
+- ✅ Installs Python dependencies in virtual environment
+- ✅ Interactive API key configuration with secure storage
+
+**Requirements:**
+- Windows 10/11
+- Python 3.8+ installed and added to PATH
+- Git for Windows
+- Administrator privileges
+
+**Installation:**
+1. **Open PowerShell as Administrator** (Right-click PowerShell → "Run as Administrator")
+
+2. **Set execution policy** (if needed):
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+3. **Download and run the installation script**:
+```powershell
+# Download the script
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Defectuous/TradeBot/main/install_tradebot.ps1" -OutFile "install_tradebot.ps1"
+
+# Run the installation
+.\install_tradebot.ps1
+```
+
+**Post-Installation Management:**
+
+**Linux (systemd service):**
+```bash
+# Start/stop the service
+sudo systemctl start trade_bot.service
+sudo systemctl stop trade_bot.service
+
+# Enable/disable automatic startup
+sudo systemctl enable trade_bot.service
+sudo systemctl disable trade_bot.service
+
+# View logs
+sudo journalctl -u trade_bot.service -f
+
+# Edit configuration as tradebot user
+sudo -u tradebot nano /home/tradebot/TradeBot/.env
+```
+
+**Windows (scheduled task):**
+```powershell
+# Start/stop the scheduled task
+Start-ScheduledTask -TaskName "TradeBot"
+Stop-ScheduledTask -TaskName "TradeBot"
+
+# View task status
+Get-ScheduledTask -TaskName "TradeBot"
+Get-ScheduledTaskInfo -TaskName "TradeBot"
+
+# Edit configuration
+notepad C:\TradeBot\.env
+```
+
+### 🔒 Security Features
+
+Both installation scripts implement enterprise-grade security:
+
+- **Dedicated User Account**: Bot runs under `tradebot` user, not your main account
+- **File Permissions**: `.env` file readable only by `tradebot` user
+- **Service Hardening**: Restricted system access and resource limits
+- **API Key Protection**: Secure storage with minimal file permissions
 
 ### Manual Installation
 
-If you want to run the bot on a Raspberry Pi (Raspberry Pi OS / Debian), follow these concise steps.
+If you prefer to install manually or need custom configuration:
 
-1. Install system packages and Python tools:
+#### Linux/Raspberry Pi Manual Setup
 
+1. **Install system packages:**
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip
+sudo apt install -y python3 python3-venv python3-pip git
 ```
 
-2. Create and activate a virtual environment (run inside the project directory):
+2. **Clone repository:**
+```bash
+git clone https://github.com/Defectuous/TradeBot.git
+cd TradeBot
+```
 
+3. **Create virtual environment:**
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-3. Install Python dependencies:
-
+4. **Install dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Configure secrets in `./.env` (keep `DRY_RUN=true` while testing). Example values:
-
+5. **Configure environment:**
+```bash
+cp .env.example .env
+nano .env  # Add your API keys
 ```
-TAAPI_KEY=your_taapi_key
-OPENAI_API_KEY=your_openai_key
-ALPACA_API_KEY=your_alpaca_key
-ALPACA_SECRET_KEY=your_alpaca_secret
-ALPACA_BASE_URL=https://paper-api.alpaca.markets
-DRY_RUN=true
-SYMBOLS=AAPL,TSLA,SPY
-QTY=1                  # Supports fractional shares: 1, 0.5, 1.25, etc.
+
+#### Windows Manual Setup
+
+1. **Install prerequisites:**
+   - Python 3.8+ from [python.org](https://python.org)
+   - Git from [git-scm.com](https://git-scm.com)
+
+2. **Clone repository:**
+```powershell
+git clone https://github.com/Defectuous/TradeBot.git
+cd TradeBot
+```
+
+3. **Create virtual environment:**
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+4. **Install dependencies:**
+```powershell
+pip install -r requirements.txt
+```
+
+5. **Configure environment:**
+```powershell
+Copy-Item .env.example .env
+notepad .env  # Add your API keys
+```
+
+### 📝 Environment Configuration
+
+After installation (manual or automated), configure your API keys and trading settings in the `.env` file:
+
+**Required API Keys:**
+```bash
+# TAAPI.io API Configuration
+TAAPI_KEY=your_taapi_api_key_here
+
+# OpenAI API Configuration  
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-3.5-turbo
+
+# Alpaca Trading API Configuration
+ALPACA_API_KEY=your_alpaca_api_key_here
+ALPACA_SECRET_KEY=your_alpaca_secret_key_here
+ALPACA_BASE_URL=https://paper-api.alpaca.markets  # Use paper trading for testing
+```
+
+**Trading Configuration:**
+```bash
+# Trading Settings
+SYMBOL=AAPL                    # Single symbol trading
+# OR use multiple symbols:
+# SYMBOLS=AAPL,TSLA,SPY       # Multiple symbol trading (overrides SYMBOL)
+
+QTY=1                          # Supports fractional shares: 1, 0.5, 1.25, etc.
+DRY_RUN=true                   # Set to false for live trading (test first!)
 LOG_LEVEL=INFO
 
 # Technical Indicator Controls (Optional)
-# Enable/disable individual indicators to customize analysis
-ENABLE_RSI=true        # Relative Strength Index
-ENABLE_MA=true         # Moving Average
-ENABLE_EMA=true        # Exponential Moving Average  
-ENABLE_PATTERN=true    # Three Black Crows pattern
-ENABLE_ADX=true        # Average Directional Index
-ENABLE_ADXR=true       # Average Directional Index Rating
+ENABLE_RSI=true                # Relative Strength Index
+ENABLE_MA=true                 # Moving Average
+ENABLE_EMA=true                # Exponential Moving Average  
+ENABLE_PATTERN=true            # Three Black Crows pattern
+ENABLE_ADX=true                # Average Directional Index
+ENABLE_ADXR=true               # Average Directional Index Rating
 
 # Technical Indicator Periods (Optional)
-MA_PERIOD=20           # Moving Average period
-EMA_PERIOD=12          # Exponential Moving Average period
-ADX_PERIOD=14          # ADX calculation period
-ADXR_PERIOD=14         # ADXR calculation period
+MA_PERIOD=20                   # Moving Average period
+EMA_PERIOD=12                  # Exponential Moving Average period
+ADX_PERIOD=14                  # ADX calculation period
+ADXR_PERIOD=14                 # ADXR calculation period
+
+# Discord Notifications (Optional)
+DISCORD_WEBHOOK_URL=your_discord_webhook_url_here
 ```
 
-5. Run interactively for testing:
+**⚠️ Security Notes:**
+- Keep your `.env` file secure and never commit it to version control
+- Start with `DRY_RUN=true` and paper trading to test the bot
+- Use paper trading (`https://paper-api.alpaca.markets`) before live trading
 
+### 🧪 Testing Your Installation
+
+**Test with dry run:**
 ```bash
-# ensure venv is active
+# Linux
+sudo -u tradebot bash -c 'cd /home/tradebot/TradeBot && source .venv/bin/activate && python trade_bot.py'
+
+# Windows  
+cd C:\TradeBot
+.\.venv\Scripts\Activate.ps1
+python trade_bot.py
+```
+
+**Run the diagnostic tests:**
+```bash
+# Test API connections
+python tests/test_alpaca_auth.py
+python tests/validate_alpaca_functions.py
+
+# Test fractional shares support
+python tests/test_fractional_shares.py
+```
+
+### 🔧 Advanced Configuration
+
+**Retry Logic Configuration:**
+```bash
+ALPACA_RETRY_ATTEMPTS=3        # Number of retry attempts
+ALPACA_RETRY_DELAY=2           # Initial delay in seconds
+ALPACA_RETRY_BACKOFF=2         # Exponential backoff multiplier
+```
+
+**Logging Configuration:**
+```bash
+LOG_LEVEL=INFO                 # DEBUG, INFO, WARNING, ERROR
+LOG_FILE=log/TradeBot.{date}.{time}.log  # Log file pattern
+```
+
+## 🏃‍♂️ Quick Start Guide
+
+1. **Choose your installation method** (Automated scripts recommended)
+2. **Configure your API keys** in the `.env` file
+3. **Test with paper trading**: Ensure `DRY_RUN=true` and `ALPACA_BASE_URL=https://paper-api.alpaca.markets`
+4. **Run a test**: Execute the bot manually to verify everything works
+5. **Start the service**: Use systemd (Linux) or scheduled task (Windows)
+6. **Monitor**: Check logs and trading activity
+7. **Go live**: Only after thorough testing, switch to live trading
+
+## 📚 Additional Documentation
+
+- **[Security Setup Guide](SECURITY_SETUP.md)** - Detailed security features and best practices
+- **[Fractional Shares Guide](FRACTIONAL_SHARES.md)** - How to use fractional share trading
+- **[Small Account Guide](SMALL_ACCOUNT_GUIDE.md)** - Optimizations for smaller trading accounts
+
+---
+
+## 🔧 Legacy Manual Installation (Advanced Users)
+
+For advanced users who prefer complete manual control:
+
+### Legacy Linux Setup
+
+1. **Install system packages:**
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git
+```
+
+2. **Clone and setup:**
+```bash
+git clone https://github.com/Defectuous/TradeBot.git
+cd TradeBot
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+3. **Configure environment:**
+```bash
+cp .env.example .env
+nano .env  # Add your API keys
+```
+
+4. **Test the bot:**
+```bash
 source .venv/bin/activate
 python3 ./trade_bot.py
 ```
 
-6. Run in the background (quick): use `tmux` or `screen`:
-
+5. **Optional: Run in background with tmux:**
 ```bash
 sudo apt install -y tmux
 tmux new -s tradebot
-# inside tmux:
+# Inside tmux session:
 source .venv/bin/activate
 python3 ./trade_bot.py
-# detach: Ctrl-B then D
+# Detach with: Ctrl-B then D
 ```
 
-7. Recommended: run as a systemd service so it starts at boot. Create `/etc/systemd/system/trade_bot.service` with:
-
-```
+6. **Optional: Create systemd service:**
+Create `/etc/systemd/system/trade_bot.service`:
+```ini
 [Unit]
-Description=RSI->GPT->Alpaca trade bot
+Description=AI Trading Bot with Enhanced Technical Analysis
 After=network.target
 
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/Trade_Bot
-EnvironmentFile=/home/pi/Trade_Bot/.env
-ExecStart=/home/pi/Trade_Bot/.venv/bin/python /home/pi/Trade_Bot/trade_bot.py
+WorkingDirectory=/home/pi/TradeBot
+EnvironmentFile=/home/pi/TradeBot/.env
+ExecStart=/home/pi/TradeBot/.venv/bin/python /home/pi/TradeBot/trade_bot.py
 Restart=on-failure
-RestartSec=10s
+RestartSec=30s
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Then enable and start/stop:
-
+Then enable and manage:
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable trade_bot.service
 sudo systemctl start trade_bot.service
-sudo systemctl stop trade_bot.service
 sudo journalctl -u trade_bot.service -f
 ```
 
-Notes
-- Keep secrets in `./.env` and secure the Pi filesystem.
-- Test thoroughly with `DRY_RUN=true` and Alpaca paper account before using real funds.
-- Watch for API rate limits when using many symbols; ask if you want rate-limiting or per-symbol quantities.
+## ⚠️ Important Notes
+
+- **Security First**: Use the automated installation scripts for better security
+- **Test Thoroughly**: Always test with `DRY_RUN=true` and paper trading first
+- **API Limits**: Monitor TAAPI.io rate limits when using multiple symbols
+- **Keep Secrets Safe**: Secure your `.env` file and never commit it to version control
+- **Monitor Regularly**: Check logs and trading performance frequently
+
+## 📞 Support
+
+For questions, issues, or contributions:
+- Check the GitHub repository for updates
+- Review the comprehensive documentation in the `/docs` folder
+- Test all changes in paper trading mode first
