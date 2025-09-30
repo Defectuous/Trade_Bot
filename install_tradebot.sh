@@ -33,9 +33,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-GITHUB_REPO="https://github.com/Defectuous/TradeBot.git"  # Update this with your actual repo
+GITHUB_REPO="https://github.com/Defectuous/Trade_Bot.git"  # Update this with your actual repo
 TRADEBOT_USER="tradebot"
-INSTALL_DIR="/home/$TRADEBOT_USER/TradeBot"
+INSTALL_DIR="/home/$TRADEBOT_USER/Trade_Bot"
 SERVICE_NAME="trade_bot.service"
 
 echo -e "${BLUE}🚀 TradeBot Raspberry Pi Installation Script${NC}"
@@ -189,7 +189,7 @@ if [ "$ENV_EXISTS" != true ]; then
     echo "Visit https://taapi.io to get your API key (~\$15/month subscription required)"
     read -p "Enter your TAAPI API key: " taapi_key
     if [ ! -z "$taapi_key" ]; then
-        sed -i "s/TAAPI_KEY=/TAAPI_KEY=$taapi_key/" .env
+        run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/TAAPI_KEY=/TAAPI_KEY=$taapi_key/\" .env"
     fi
     echo
     
@@ -198,12 +198,12 @@ if [ "$ENV_EXISTS" != true ]; then
     echo "Visit https://platform.openai.com to get your API key (pay-per-use)"
     read -p "Enter your OpenAI API key: " openai_key
     if [ ! -z "$openai_key" ]; then
-        sed -i "s/OPENAI_API_KEY=/OPENAI_API_KEY=$openai_key/" .env
+        run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/OPENAI_API_KEY=/OPENAI_API_KEY=$openai_key/\" .env"
     fi
     
     read -p "Enter OpenAI model [gpt-3.5-turbo]: " openai_model
     openai_model=${openai_model:-gpt-3.5-turbo}
-    sed -i "s/OPENAI_MODEL=gpt-3.5-turbo/OPENAI_MODEL=$openai_model/" .env
+    run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/OPENAI_MODEL=gpt-3.5-turbo/OPENAI_MODEL=$openai_model/\" .env"
     echo
     
     # Alpaca Keys
@@ -211,12 +211,12 @@ if [ "$ENV_EXISTS" != true ]; then
     echo "Visit https://alpaca.markets to get your API keys (free paper trading account)"
     read -p "Enter your Alpaca API key: " alpaca_key
     if [ ! -z "$alpaca_key" ]; then
-        run_as_tradebot "cd $INSTALL_DIR && sed -i 's/ALPACA_API_KEY=/ALPACA_API_KEY=$alpaca_key/' .env"
+        run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/ALPACA_API_KEY=/ALPACA_API_KEY=$alpaca_key/\" .env"
     fi
     
     read -p "Enter your Alpaca Secret key: " alpaca_secret
     if [ ! -z "$alpaca_secret" ]; then
-        run_as_tradebot "cd $INSTALL_DIR && sed -i 's/ALPACA_SECRET_KEY=/ALPACA_SECRET_KEY=$alpaca_secret/' .env"
+        run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/ALPACA_SECRET_KEY=/ALPACA_SECRET_KEY=$alpaca_secret/\" .env"
     fi
     
     echo -e "${YELLOW}Alpaca Base URL options:${NC}"
@@ -224,7 +224,7 @@ if [ "$ENV_EXISTS" != true ]; then
     echo "2. Live trading: https://api.alpaca.markets"
     read -p "Choose [1-2, default: 1]: " alpaca_env
     if [ "$alpaca_env" = "2" ]; then
-        run_as_tradebot "cd $INSTALL_DIR && sed -i 's|ALPACA_BASE_URL=https://paper-api.alpaca.markets|ALPACA_BASE_URL=https://api.alpaca.markets|' .env"
+        run_as_tradebot "cd $INSTALL_DIR && sed -i \"s|ALPACA_BASE_URL=https://paper-api.alpaca.markets|ALPACA_BASE_URL=https://api.alpaca.markets|\" .env"
         print_warning "LIVE TRADING ENABLED - Use with caution!"
     fi
     echo
@@ -234,7 +234,7 @@ if [ "$ENV_EXISTS" != true ]; then
     echo "Create a webhook in your Discord server: Server Settings -> Integrations -> Webhooks"
     read -p "Enter Discord webhook URL (or press Enter to skip): " discord_webhook
     if [ ! -z "$discord_webhook" ]; then
-        run_as_tradebot "cd $INSTALL_DIR && sed -i 's|DISCORD_WEBHOOK_URL=|DISCORD_WEBHOOK_URL=$discord_webhook|' .env"
+        run_as_tradebot "cd $INSTALL_DIR && sed -i \"s|DISCORD_WEBHOOK_URL=|DISCORD_WEBHOOK_URL=$discord_webhook|\" .env"
     fi
     echo
     
@@ -243,23 +243,23 @@ if [ "$ENV_EXISTS" != true ]; then
     read -p "Enter stock symbol(s) [AAPL] (comma-separated for multiple): " symbols
     if [ ! -z "$symbols" ]; then
         if [[ "$symbols" == *","* ]]; then
-            run_as_tradebot "cd $INSTALL_DIR && sed -i 's/#SYMBOLS = AAPL,TSLA,SPY/SYMBOLS = $symbols/' .env"
-            run_as_tradebot "cd $INSTALL_DIR && sed -i 's/SYMBOL=AAPL/#SYMBOL=AAPL/' .env"
+            run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/#SYMBOLS = AAPL,TSLA,SPY/SYMBOLS = $symbols/\" .env"
+            run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/SYMBOL=AAPL/#SYMBOL=AAPL/\" .env"
         else
-            run_as_tradebot "cd $INSTALL_DIR && sed -i 's/SYMBOL=AAPL/SYMBOL=$symbols/' .env"
+            run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/SYMBOL=AAPL/SYMBOL=$symbols/\" .env"
         fi
     fi
     
     read -p "Enter quantity per trade [1]: " qty
     qty=${qty:-1}
-    run_as_tradebot "cd $INSTALL_DIR && sed -i 's/QTY=1/QTY=$qty/' .env"
+    run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/QTY=1/QTY=$qty/\" .env"
     
     echo -e "${YELLOW}DRY_RUN mode (recommended for testing):${NC}"
     echo "1. Yes - Dry run mode (no actual trades, recommended)"
     echo "2. No - Live trading mode"
     read -p "Choose [1-2, default: 1]: " dry_run_choice
     if [ "$dry_run_choice" = "2" ]; then
-        run_as_tradebot "cd $INSTALL_DIR && sed -i 's/DRY_RUN=true/DRY_RUN=false/' .env"
+        run_as_tradebot "cd $INSTALL_DIR && sed -i \"s/DRY_RUN=true/DRY_RUN=false/\" .env"
         print_warning "LIVE TRADING MODE ENABLED - Trades will be executed!"
     fi
     
