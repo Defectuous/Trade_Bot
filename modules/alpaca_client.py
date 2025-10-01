@@ -277,12 +277,31 @@ def can_buy(api, price: Decimal, qty) -> bool:
         True if purchase is within buying power limits, False otherwise
     """
     try:
+        # Get buying power
         bp = get_wallet_amount(api, 'buying_power')
-        needed = price * Decimal(str(qty))  # Convert qty to Decimal for calculation
-        return bp >= needed
-    except Exception:
-        logger.exception("can_buy check failed")
-        return False
+        
+        # Calculate total cost needed
+        needed = price * Decimal(str(qty))
+        
+        # Add small buffer for fees/slippage (0.5%)
+        needed_with_buffer = needed * Decimal("1.005")
+        
+        # Log the check for transparency
+        logger.debug("Fund check: Need $%s (with buffer: $%s), have $%s buying power", 
+                    needed, needed_with_buffer, bp)
+        
+        # Ensure we have enough buying power with buffer
+        can_afford = bp >= needed_with_buffer
+        
+        if not can_afford:
+            logger.warning("Insufficient buying power: Need $%s, have $%s (deficit: $%s)", 
+                         needed_with_buffer, bp, needed_with_buffer - bp)
+        
+        return can_afford
+        
+    except Exception as e:
+        logger.exception("can_buy check failed: %s", e)
+        return False  # Default to safe (don't buy) if check fails
 
 
 def owns_at_least(api, symbol: str, qty) -> bool:

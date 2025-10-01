@@ -204,22 +204,44 @@ def _execute_buy_order(api, symbol: str, amount: Decimal, price: Decimal):
         if price is not None and qty_numeric > 0:
             try:
                 current_cash = get_wallet_amount(api, "cash")
-                max_affordable_shares = current_cash / price
+                
+                # Add safety margin (keep some cash for fees/margin)
+                safety_margin = Decimal("0.02")  # 2% safety margin
+                usable_cash = current_cash * (Decimal("1") - safety_margin)
+                
+                max_affordable_shares = usable_cash / price
                 
                 if qty_numeric > max_affordable_shares:
-                    logger.warning("GPT recommended %s shares ($%s), but only $%s available. Capping to %s shares ($%s)", 
-                                 qty_numeric, qty_numeric * price, current_cash, 
-                                 max_affordable_shares, max_affordable_shares * price)
+                    logger.warning("GPT recommended %s shares ($%s), but only $%s available (after %s%% safety margin). Capping to %s shares ($%s)", 
+                                 qty_numeric, qty_numeric * price, usable_cash, 
+                                 safety_margin * 100, max_affordable_shares, max_affordable_shares * price)
                     qty_numeric = max_affordable_shares
                     
                     # Update the decision source logging
                     logger.info("Using cash-limited quantity: %s shares for %s (GPT recommended %s)", 
                                qty_numeric, symbol, qty_to_buy)
+                
+                # Additional check: Ensure we have minimum viable quantity
+                if qty_numeric <= 0:
+                    logger.warning("Insufficient funds to buy any shares of %s at $%s (available: $%s)", 
+                                 symbol, price, current_cash)
+                    return
+                    
             except Exception as e:
                 logger.warning("Could not verify cash limits: %s", e)
+                # If we can't check cash, fall back to buying power check only
 
         # Check buying power using the last trade price if available
         if price is not None and qty_numeric > 0:
+            # Minimum order value check (prevent tiny orders)
+            order_value = price * qty_numeric
+            min_order_value = Decimal("1.00")  # $1 minimum order
+            
+            if order_value < min_order_value:
+                logger.warning("Order value $%s below minimum $%s for %s shares of %s", 
+                             order_value, min_order_value, qty_numeric, symbol)
+                return
+            
             # Pass qty_numeric directly - can_buy now supports both int and float
             if not can_buy(api, price, qty_numeric):
                 logger.info("Insufficient buying power to buy %s %s at %s", qty_numeric, symbol, price)
