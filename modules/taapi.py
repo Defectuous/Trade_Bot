@@ -1,7 +1,7 @@
 """TAAPI helper: fetch technical indicators via the taapi.io API.
 
 This module provides wrappers around TAAPI that return technical indicators as Decimals.
-Supports RSI, MA, EMA, Three Black Crows pattern, ADX, and ADXR indicators.
+Supports RSI, MA, EMA, Three Black Crows pattern, ADX, ADXR, and Candlestick data indicators.
 """
 from decimal import Decimal
 import requests
@@ -125,6 +125,34 @@ def fetch_adxr_taapi(symbol: str, taapi_key: str, period: int = 14, interval: st
     return None
 
 
+def fetch_candle_taapi(symbol: str, taapi_key: str, interval: str = "1m", timeout: int = 10) -> Optional[Dict[str, Decimal]]:
+    """Fetch candlestick data (OHLC) for `symbol` from taapi.io.
+    
+    Returns a dictionary with Open, High, Low, Close prices as Decimals.
+    Example return: {'open': Decimal('450.25'), 'high': Decimal('451.80'), 'low': Decimal('449.90'), 'close': Decimal('451.15')}
+    """
+    if not taapi_key:
+        return None
+    url = "https://api.taapi.io/candle"
+    params = {"secret": taapi_key, "symbol": symbol, "interval": interval, "type": "stocks"}
+    try:
+        resp = requests.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # TAAPI candle endpoint returns OHLC data
+        if all(key in data for key in ['open', 'high', 'low', 'close']):
+            return {
+                'open': Decimal(str(data['open'])),
+                'high': Decimal(str(data['high'])), 
+                'low': Decimal(str(data['low'])),
+                'close': Decimal(str(data['close']))
+            }
+    except Exception:
+        return None
+    return None
+
+
 def fetch_all_indicators(symbol: str, taapi_key: str, interval: str = "1m") -> Dict[str, Any]:
     """Fetch all technical indicators for a symbol.
     
@@ -229,6 +257,19 @@ def fetch_all_indicators(symbol: str, taapi_key: str, interval: str = "1m") -> D
     else:
         indicators['adxr'] = None
         disabled_indicators.append('ADXR')
+    
+    if is_indicator_enabled('candle'):
+        try:
+            indicators['candle'] = fetch_candle_taapi(symbol, taapi_key, interval)
+            if indicators['candle'] is None:
+                failed_indicators.append('Candle')
+        except Exception as e:
+            logger.debug("Candle fetch failed for %s: %s", symbol, e)
+            indicators['candle'] = None
+            failed_indicators.append('Candle')
+    else:
+        indicators['candle'] = None
+        disabled_indicators.append('Candle')
     
     # Log summary of successful, failed, and disabled indicators
     successful_indicators = [name.upper() for name, value in indicators.items() if value is not None]

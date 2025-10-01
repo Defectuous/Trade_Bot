@@ -159,7 +159,13 @@ def fetch_all_technical_indicators(symbol: str) -> dict:
         valid_indicators = []
         for name, value in indicators.items():
             if value is not None and value != 'N/A':
-                valid_indicators.append(f"{name.upper()}={value}")
+                # Special formatting for candlestick data
+                if name == 'candle' and isinstance(value, dict):
+                    if all(k in value for k in ['open', 'high', 'low', 'close']):
+                        candle_str = f"O:{value['open']} H:{value['high']} L:{value['low']} C:{value['close']}"
+                        valid_indicators.append(f"{name.upper()}={candle_str}")
+                else:
+                    valid_indicators.append(f"{name.upper()}={value}")
         logger.debug("Valid indicators for %s: %s", symbol, ', '.join(valid_indicators))
     
     return indicators

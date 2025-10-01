@@ -50,14 +50,21 @@ def ask_gpt_for_decision(openai_api_key: str, model: str, indicators: Dict[str, 
         'ema': {'value': indicators.get('ema'), 'desc': 'EMA (Exponential Moving Average)', 'guide': '[More responsive to recent price changes]'},
         'pattern': {'value': indicators.get('pattern'), 'desc': 'Pattern Analysis (Three Black Crows)', 'guide': '[STRONG_BEARISH/BEARISH/NEUTRAL/BULLISH/STRONG_BULLISH]'},
         'adx': {'value': indicators.get('adx'), 'desc': 'ADX (Average Directional Index)', 'guide': '[Trend strength: >25 strong, <20 weak]'},
-        'adxr': {'value': indicators.get('adxr'), 'desc': 'ADXR (Average Directional Index Rating)', 'guide': '[Trend stability indicator]'}
+        'adxr': {'value': indicators.get('adxr'), 'desc': 'ADXR (Average Directional Index Rating)', 'guide': '[Trend stability indicator]'},
+        'candle': {'value': indicators.get('candle'), 'desc': 'Candlestick Data (OHLC)', 'guide': '[Open/High/Low/Close for price action analysis]'}
     }
     
     # Build list of valid indicators (not None, not 'N/A', not empty)
     for indicator_name, indicator_info in indicator_definitions.items():
         value = indicator_info['value']
         if value is not None and value != 'N/A' and str(value).strip():
-            valid_indicators.append(f"• {indicator_info['desc']}: {value} {indicator_info['guide']}")
+            # Special formatting for candlestick data
+            if indicator_name == 'candle' and isinstance(value, dict):
+                if all(k in value for k in ['open', 'high', 'low', 'close']):
+                    candle_str = f"O:{value['open']} H:{value['high']} L:{value['low']} C:{value['close']}"
+                    valid_indicators.append(f"• {indicator_info['desc']}: {candle_str} {indicator_info['guide']}")
+            else:
+                valid_indicators.append(f"• {indicator_info['desc']}: {value} {indicator_info['guide']}")
     
     # Ensure we have at least one indicator
     if not valid_indicators:
@@ -95,6 +102,9 @@ def ask_gpt_for_decision(openai_api_key: str, model: str, indicators: Dict[str, 
             trading_guidelines.append("• Consider trend strength (ADX) and pattern analysis together")
         if any('Pattern' in ind for ind in valid_indicators):
             trading_guidelines.append("• Pattern analysis for reversal signals")
+        if any('Candlestick Data' in ind for ind in valid_indicators):
+            trading_guidelines.append("• Use OHLC data for price action analysis (doji, hammer, engulfing patterns)")
+            trading_guidelines.append("• Compare current price vs Open/High/Low for intraday momentum")
         
         # Default guideline if no specific ones apply
         if not trading_guidelines:
