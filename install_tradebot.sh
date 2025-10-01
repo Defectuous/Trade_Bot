@@ -15,13 +15,31 @@ NC='\033[0m' # No Color
 
 # Configuration
 GITHUB_REPO="https://github.com/Defectuous/Trade_Bot.git"  # Update this with your actual repo
-TRADEBOT_USER="tradebot"
-INSTALL_DIR="/home/$TRADEBOT_USER/Trade_Bot"
 SERVICE_NAME="trade_bot.service"
 
 echo -e "${BLUE}🚀 Trade_Bot Raspberry Pi Installation Script${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo -e "${YELLOW}This script will create a dedicated user account for security${NC}"
+
+# Prompt for username
+echo -e "${BLUE}User Account Configuration:${NC}"
+echo "The bot will run under a dedicated user account for security."
+echo "Default username: 'tradebot'"
+echo
+read -p "Enter username for the trading bot [tradebot]: " custom_user
+TRADEBOT_USER=${custom_user:-tradebot}
+
+# Validate username
+if [[ ! "$TRADEBOT_USER" =~ ^[a-z][a-z0-9_-]*$ ]]; then
+    print_error "Invalid username. Username must start with a letter and contain only lowercase letters, numbers, hyphens, and underscores."
+    exit 1
+fi
+
+INSTALL_DIR="/home/$TRADEBOT_USER/Trade_Bot"
+
+print_info "Using username: '$TRADEBOT_USER'"
+print_info "Installation directory: $INSTALL_DIR"
+echo
 
 # Function to print status messages
 print_status() {
@@ -47,7 +65,7 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
-echo -e "${YELLOW}Step 1: Creating dedicated tradebot user account...${NC}"
+echo -e "${YELLOW}Step 1: Creating dedicated user account...${NC}"
 
 echo -e "${BLUE}Password Requirements:${NC}"
 echo "• Use a strong password (8+ characters recommended)"
@@ -55,14 +73,26 @@ echo "• Include letters, numbers, and symbols"
 echo "• Type carefully - passwords must match exactly"
 echo
 
-# Check if tradebot user already exists
+# Check if user already exists
 if id "$TRADEBOT_USER" &>/dev/null; then
     print_warning "User '$TRADEBOT_USER' already exists"
-    read -p "Do you want to continue with existing user? (y/n): " -n 1 -r
+    echo -e "${BLUE}Existing user information:${NC}"
+    id "$TRADEBOT_USER"
+    echo
+    read -p "Do you want to continue with existing user '$TRADEBOT_USER'? (y/n): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         print_info "Installation cancelled"
+        print_info "You can run the script again and choose a different username"
         exit 0
+    fi
+    
+    # Ask if they want to change the password for existing user
+    read -p "Do you want to change the password for user '$TRADEBOT_USER'? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Changing password for existing user '$TRADEBOT_USER'..."
+        sudo passwd "$TRADEBOT_USER"
     fi
 else
     print_info "Creating user '$TRADEBOT_USER'..."
@@ -70,40 +100,64 @@ else
     
     print_info "Setting password for user '$TRADEBOT_USER'..."
     echo -e "${YELLOW}Password Options:${NC}"
-    echo "1. Set password now (recommended)"
-    echo "2. Skip password setting (you can set it later)"
-    read -p "Choose [1-2, default: 1]: " password_choice
+    echo "1. Set password interactively (recommended)"
+    echo "2. Generate random password"
+    echo "3. Skip password setting (set manually later)"
+    read -p "Choose [1-3, default: 1]: " password_choice
     
-    if [ "$password_choice" = "2" ]; then
-        print_warning "Skipping password setting"
-        print_info "You can set the password later with: sudo passwd $TRADEBOT_USER"
-        password_set=true
-    else
-        echo -e "${YELLOW}Please set a secure password for the tradebot user:${NC}"
-        
-        # Try to set password with retry logic
-        password_set=false
-        retry_count=0
-        max_retries=3
-        
-        while [ "$password_set" = false ] && [ $retry_count -lt $max_retries ]; do
-            if sudo passwd $TRADEBOT_USER; then
-                password_set=true
+    case "$password_choice" in
+        "2")
+            # Generate random password
+            random_password=$(openssl rand -base64 12 2>/dev/null || tr -dc 'A-Za-z0-9!@#$%^&*' < /dev/urandom | head -c 12)
+            echo "$TRADEBOT_USER:$random_password" | sudo chpasswd
+            if [ $? -eq 0 ]; then
                 print_status "Password set successfully"
+                echo -e "${GREEN}Generated password for '$TRADEBOT_USER': ${YELLOW}$random_password${NC}"
+                echo -e "${RED}⚠️  IMPORTANT: Save this password securely! ${NC}"
+                echo -e "${YELLOW}Press Enter to continue after saving the password...${NC}"
+                read
+                password_set=true
             else
-                retry_count=$((retry_count + 1))
-                if [ $retry_count -lt $max_retries ]; then
-                    print_warning "Password setting failed. Please try again (attempt $((retry_count + 1))/$max_retries)."
-                    echo -e "${YELLOW}Make sure passwords match and meet system requirements.${NC}"
-                else
-                    print_error "Failed to set password after $max_retries attempts."
-                    print_info "You can set the password manually later with: sudo passwd $TRADEBOT_USER"
-                    print_info "Continuing installation..."
-                    password_set=true
-                fi
+                print_error "Failed to set random password"
+                password_set=false
             fi
-        done
-    fi
+            ;;
+        "3")
+            print_warning "Skipping password setting"
+            print_info "You can set the password later with: sudo passwd $TRADEBOT_USER"
+            password_set=true
+            ;;
+        *)
+            # Interactive password setting (default)
+            echo -e "${YELLOW}Please set a secure password for user '$TRADEBOT_USER':${NC}"
+            
+            # Try to set password with retry logic
+            password_set=false
+            retry_count=0
+            max_retries=3
+            
+            while [ "$password_set" = false ] && [ $retry_count -lt $max_retries ]; do
+                if sudo passwd "$TRADEBOT_USER"; then
+                    password_set=true
+                    print_status "Password set successfully"
+                else
+                    retry_count=$((retry_count + 1))
+                    if [ $retry_count -lt $max_retries ]; then
+                        print_warning "Password setting failed. Please try again (attempt $((retry_count + 1))/$max_retries)."
+                        echo -e "${YELLOW}Tips:${NC}"
+                        echo "• Make sure passwords match exactly"
+                        echo "• Use 8+ characters with letters, numbers, and symbols"
+                        echo "• Avoid common passwords"
+                    else
+                        print_error "Failed to set password after $max_retries attempts."
+                        print_info "You can set the password manually later with: sudo passwd $TRADEBOT_USER"
+                        print_info "Continuing installation..."
+                        password_set=true
+                    fi
+                fi
+            done
+            ;;
+    esac
     
     # Add tradebot user to necessary groups
     print_info "Adding user to necessary groups..."
