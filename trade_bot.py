@@ -171,9 +171,124 @@ def fetch_all_technical_indicators(symbol: str) -> dict:
     return indicators
 
 
+def _check_position_concentration(api, symbol: str, amount: Decimal, price: Decimal) -> dict:
+    """Check if buying would exceed position concentration limits.
+    
+    Returns:
+        dict: {
+            'allow_purchase': bool,
+            'reason': str,
+            'adjusted_amount': Decimal or None
+        }
+    """
+    # Get configuration parameters
+    max_position_value_pct = float(os.getenv('MAX_POSITION_VALUE_PCT', '20'))  # Max % of portfolio in one stock
+    max_position_shares = float(os.getenv('MAX_POSITION_SHARES', '100'))  # Max absolute shares per stock
+    enable_position_limits = os.getenv('ENABLE_POSITION_LIMITS', 'true').lower() in ('true', '1', 'yes', 'on')
+    
+    # Skip check if position limits are disabled
+    if not enable_position_limits:
+        return {'allow_purchase': True, 'reason': 'Position limits disabled', 'adjusted_amount': None}
+    
+    # If no amount or price provided, can't calculate
+    if amount is None or price is None or amount <= 0 or price <= 0:
+        return {'allow_purchase': True, 'reason': 'Invalid amount/price for position check', 'adjusted_amount': None}
+    
+    try:
+        # Get current positions and portfolio value
+        owned_positions = get_owned_positions(api)
+        current_shares = owned_positions.get(symbol.upper(), Decimal(0))
+        
+        # Calculate current position value
+        current_position_value = current_shares * price
+        
+        # Calculate proposed new position
+        proposed_shares = current_shares + Decimal(str(amount))
+        proposed_position_value = proposed_shares * price
+        
+        # Get total portfolio value for percentage calculations
+        try:
+            total_portfolio_value = get_wallet_amount(api, "equity")  # Total account value
+            if total_portfolio_value <= 0:
+                # Fallback to cash if equity not available
+                total_portfolio_value = get_wallet_amount(api, "cash")
+        except Exception:
+            # If we can't get portfolio value, use conservative estimate
+            total_portfolio_value = current_position_value * 5  # Assume current position is max 20% of portfolio
+        
+        # Check 1: Maximum absolute shares limit
+        if proposed_shares > Decimal(str(max_position_shares)):
+            # Calculate how many shares we can still buy
+            remaining_shares = Decimal(str(max_position_shares)) - current_shares
+            if remaining_shares <= 0:
+                return {
+                    'allow_purchase': False,
+                    'reason': f'Already own {current_shares} shares, max allowed is {max_position_shares}',
+                    'adjusted_amount': None
+                }
+            else:
+                return {
+                    'allow_purchase': True,
+                    'reason': f'Adjusted to stay within {max_position_shares} share limit',
+                    'adjusted_amount': remaining_shares
+                }
+        
+        # Check 2: Maximum portfolio percentage limit
+        if total_portfolio_value > 0:
+            proposed_percentage = (proposed_position_value / total_portfolio_value) * 100
+            max_percentage = Decimal(str(max_position_value_pct))
+            
+            if proposed_percentage > max_percentage:
+                # Calculate maximum allowed position value
+                max_allowed_value = total_portfolio_value * (max_percentage / 100)
+                max_allowed_shares = max_allowed_value / price
+                
+                # Calculate how many more shares we can buy
+                remaining_shares = max_allowed_shares - current_shares
+                
+                if remaining_shares <= 0:
+                    return {
+                        'allow_purchase': False,
+                        'reason': f'Position would be {proposed_percentage:.1f}% of portfolio (max: {max_position_value_pct}%)',
+                        'adjusted_amount': None
+                    }
+                else:
+                    return {
+                        'allow_purchase': True,
+                        'reason': f'Adjusted to stay within {max_position_value_pct}% portfolio limit',
+                        'adjusted_amount': remaining_shares
+                    }
+        
+        # All checks passed
+        logger.debug("Position concentration check passed for %s: %s shares (%.1f%% of portfolio)", 
+                    symbol, proposed_shares, 
+                    (proposed_position_value / total_portfolio_value * 100) if total_portfolio_value > 0 else 0)
+        
+        return {'allow_purchase': True, 'reason': 'Within all position limits', 'adjusted_amount': None}
+        
+    except Exception as e:
+        logger.warning("Error in position concentration check for %s: %s", symbol, e)
+        # On error, allow purchase but log the issue
+        return {'allow_purchase': True, 'reason': f'Position check error: {e}', 'adjusted_amount': None}
+
+
 def _execute_buy_order(api, symbol: str, amount: Decimal, price: Decimal):
     """Execute a buy order with proper logging and validation."""
     try:
+        # Position concentration check - prevent over-concentration in single stock
+        try:
+            position_check_result = _check_position_concentration(api, symbol, amount, price)
+            if not position_check_result['allow_purchase']:
+                logger.warning("🚫 Position concentration limit reached for %s: %s", 
+                             symbol, position_check_result['reason'])
+                return
+            elif position_check_result['adjusted_amount']:
+                amount = position_check_result['adjusted_amount']
+                logger.info("📊 Position adjusted for concentration limits: %s shares for %s", 
+                           amount, symbol)
+        except Exception as e:
+            logger.warning("Could not check position concentration for %s: %s. Proceeding with original order.", symbol, e)
+        
         # Log wallet amounts before attempting to buy
         try:
             cash_before = get_wallet_amount(api, "cash")
