@@ -26,6 +26,7 @@ from modules.alpaca_client import (
     place_order,
     can_buy,
     owns_at_least,
+    is_fractionable,
 )
 from modules.market_schedule import in_market_hours
 from modules.discord_webhook import (
@@ -246,6 +247,19 @@ def _execute_buy_order(api, symbol: str, amount: Decimal, price: Decimal):
             if not can_buy(api, price, qty_numeric):
                 logger.info("Insufficient buying power to buy %s %s at %s", qty_numeric, symbol, price)
                 return
+
+        # Check if asset supports fractional shares before order conversion
+        if qty_numeric != qty_numeric.to_integral_value():
+            # We have a fractional quantity, check if asset supports it
+            if not is_fractionable(api, symbol):
+                logger.warning("Asset %s does not support fractional shares. Rounding %s to whole shares: %s", 
+                             symbol, qty_numeric, int(qty_numeric))
+                qty_numeric = Decimal(int(qty_numeric))
+                
+                # Check if rounding resulted in zero shares
+                if qty_numeric <= 0:
+                    logger.warning("Rounding fractional shares to whole resulted in 0 shares for %s. Skipping order.", symbol)
+                    return
 
         # Convert qty_numeric to int when whole number else float (for fractional)
         if qty_numeric == qty_numeric.to_integral_value():

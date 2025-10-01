@@ -304,6 +304,34 @@ def can_buy(api, price: Decimal, qty) -> bool:
         return False  # Default to safe (don't buy) if check fails
 
 
+def is_fractionable(api, symbol: str) -> bool:
+    """Check if an asset supports fractional trading.
+    
+    Args:
+        api: Alpaca REST client instance
+        symbol: Stock symbol to check
+        
+    Returns:
+        True if asset supports fractional shares, False otherwise
+        
+    Note:
+        Returns False if asset info cannot be retrieved (safer default)
+    """
+    try:
+        # Get asset information
+        asset = api.get_asset(symbol)
+        
+        # Check if asset is fractionable
+        fractionable = getattr(asset, 'fractionable', False)
+        logger.debug("Asset %s fractionable status: %s", symbol, fractionable)
+        
+        return fractionable
+        
+    except Exception as e:
+        logger.warning("Could not check fractionable status for %s: %s", symbol, e)
+        return False  # Default to whole shares only if check fails
+
+
 def owns_at_least(api, symbol: str, qty) -> bool:
     """Check if account owns at least the specified quantity of a symbol.
     
