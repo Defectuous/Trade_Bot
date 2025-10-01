@@ -267,6 +267,17 @@ def _execute_buy_order(api, symbol: str, amount: Decimal, price: Decimal):
         else:
             qty_for_order = float(qty_numeric)
 
+        # FINAL VALIDATION: Ensure quantity is valid before placing order
+        if qty_for_order <= 0:
+            logger.warning("Final quantity check failed: qty_for_order=%s for %s. Order cancelled to prevent API error.", qty_for_order, symbol)
+            return
+        
+        # Additional safety: Ensure we have a reasonable minimum quantity
+        min_qty = 0.01  # Minimum 0.01 shares
+        if qty_for_order < min_qty:
+            logger.warning("Quantity %s below minimum %s for %s. Order cancelled to prevent API error.", qty_for_order, min_qty, symbol)
+            return
+
         place_order(api, symbol, qty_for_order, "buy")
         logger.info("✅ BUY order submitted successfully for %s %s", qty_for_order, symbol)
         
