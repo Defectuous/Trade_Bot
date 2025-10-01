@@ -481,9 +481,9 @@ LOG_FILE=log/TradeBot.{date}.{time}.log  # Log file pattern
 
 ## 📚 Additional Documentation
 
-- **[Security Setup Guide](SECURITY_SETUP.md)** - Detailed security features and best practices
-- **[Fractional Shares Guide](FRACTIONAL_SHARES.md)** - How to use fractional share trading
-- **[Small Account Guide](SMALL_ACCOUNT_GUIDE.md)** - Optimizations for smaller trading accounts
+- **[Security Setup Guide](guides/SECURITY_SETUP.md)** - Detailed security features and best practices
+- **[Fractional Shares Guide](guides/FRACTIONAL_SHARES.md)** - How to use fractional share trading
+- **[Small Account Guide](guides/SMALL_ACCOUNT_GUIDE.md)** - Optimizations for smaller trading accounts
 
 ---
 
@@ -570,5 +570,5 @@ sudo journalctl -u trade_bot.service -f
 
 For questions, issues, or contributions:
 - Check the GitHub repository for updates
-- Review the comprehensive documentation in the `/docs` folder
+- Review the comprehensive documentation in the `/guides` folder
 - Test all changes in paper trading mode first
