@@ -49,6 +49,12 @@ fi
 
 echo -e "${YELLOW}Step 1: Creating dedicated tradebot user account...${NC}"
 
+echo -e "${BLUE}Password Requirements:${NC}"
+echo "• Use a strong password (8+ characters recommended)"
+echo "• Include letters, numbers, and symbols"
+echo "• Type carefully - passwords must match exactly"
+echo
+
 # Check if tradebot user already exists
 if id "$TRADEBOT_USER" &>/dev/null; then
     print_warning "User '$TRADEBOT_USER' already exists"
@@ -63,8 +69,41 @@ else
     sudo useradd -m -s /bin/bash $TRADEBOT_USER
     
     print_info "Setting password for user '$TRADEBOT_USER'..."
-    echo -e "${YELLOW}Please set a secure password for the tradebot user:${NC}"
-    sudo passwd $TRADEBOT_USER
+    echo -e "${YELLOW}Password Options:${NC}"
+    echo "1. Set password now (recommended)"
+    echo "2. Skip password setting (you can set it later)"
+    read -p "Choose [1-2, default: 1]: " password_choice
+    
+    if [ "$password_choice" = "2" ]; then
+        print_warning "Skipping password setting"
+        print_info "You can set the password later with: sudo passwd $TRADEBOT_USER"
+        password_set=true
+    else
+        echo -e "${YELLOW}Please set a secure password for the tradebot user:${NC}"
+        
+        # Try to set password with retry logic
+        password_set=false
+        retry_count=0
+        max_retries=3
+        
+        while [ "$password_set" = false ] && [ $retry_count -lt $max_retries ]; do
+            if sudo passwd $TRADEBOT_USER; then
+                password_set=true
+                print_status "Password set successfully"
+            else
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                    print_warning "Password setting failed. Please try again (attempt $((retry_count + 1))/$max_retries)."
+                    echo -e "${YELLOW}Make sure passwords match and meet system requirements.${NC}"
+                else
+                    print_error "Failed to set password after $max_retries attempts."
+                    print_info "You can set the password manually later with: sudo passwd $TRADEBOT_USER"
+                    print_info "Continuing installation..."
+                    password_set=true
+                fi
+            fi
+        done
+    fi
     
     # Add tradebot user to necessary groups
     print_info "Adding user to necessary groups..."
