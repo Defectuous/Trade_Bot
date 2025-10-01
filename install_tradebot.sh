@@ -2,27 +2,7 @@
 
 # Trade_Bot Raspberry Pi Installation Script
 # This script will install and configure the RSI->GPT->Alpaca Trading Bot
-# Run with: curl -sSL https://raw.githubusercontent.com/Defectuous/Trade_Bot/main/install_tradebot.sh | bash    # TAAPI Key
-    echo -e "${BLUE}TAAPI.io Configuration:${NC}"
-    echo "Visit https://taapi.io to get your API key (~\$15/month subscription required)"
-    read -p "Enter your TAAPI API key: " taapi_key
-    if [ ! -z "$taapi_key" ]; then
-        run_as_tradebot "cd $INSTALL_DIR && sed -i 's/TAAPI_KEY=/TAAPI_KEY=$taapi_key/' .env"
-    fi
-    echo
-    
-    # OpenAI Key
-    echo -e "${BLUE}OpenAI API Configuration:${NC}"
-    echo "Visit https://platform.openai.com to get your API key (pay-per-use)"
-    read -p "Enter your OpenAI API key: " openai_key
-    if [ ! -z "$openai_key" ]; then
-        run_as_tradebot "cd $INSTALL_DIR && sed -i 's/OPENAI_API_KEY=/OPENAI_API_KEY=$openai_key/' .env"
-    fi
-    
-    read -p "Enter OpenAI model [gpt-3.5-turbo]: " openai_model
-    openai_model=${openai_model:-gpt-3.5-turbo}
-    run_as_tradebot "cd $INSTALL_DIR && sed -i 's/OPENAI_MODEL=gpt-3.5-turbo/OPENAI_MODEL=$openai_model/' .env"
-    echo
+# Run with: curl -sSL https://raw.githubusercontent.com/Defectuous/Trade_Bot/main/install_tradebot.sh | bash
 
 set -e  # Exit on any error
 
@@ -116,14 +96,14 @@ sudo apt autoclean
 
 print_status "System update completed"
 
-echo -e "${YELLOW}Step 3: Installing TradeBot from GitHub as tradebot user...${NC}"
+echo -e "${YELLOW}Step 3: Installing Trade_Bot from GitHub as tradebot user...${NC}"
 
 # Switch to tradebot user home directory
 print_info "Switching to tradebot user environment..."
 
 # Check if directory already exists
 if [ -d "$INSTALL_DIR" ]; then
-    print_warning "TradeBot directory already exists at $INSTALL_DIR"
+    print_warning "Trade_Bot directory already exists at $INSTALL_DIR"
     read -p "Do you want to remove it and reinstall? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -136,7 +116,7 @@ fi
 
 # Clone repository as tradebot user
 if [ ! -d "$INSTALL_DIR" ]; then
-    print_info "Cloning TradeBot repository as user '$TRADEBOT_USER'..."
+    print_info "Cloning Trade_Bot repository as user '$TRADEBOT_USER'..."
     run_as_tradebot "git clone $GITHUB_REPO $INSTALL_DIR"
 fi
 
@@ -144,7 +124,7 @@ fi
 print_info "Setting proper file ownership..."
 sudo chown -R $TRADEBOT_USER:$TRADEBOT_USER $INSTALL_DIR
 
-print_status "TradeBot repository ready"
+print_status "Trade_Bot repository ready"
 
 echo -e "${YELLOW}Step 4: Setting up Python virtual environment...${NC}"
 
