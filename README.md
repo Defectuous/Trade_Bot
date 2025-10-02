@@ -466,7 +466,15 @@ ALPACA_RETRY_BACKOFF=2         # Exponential backoff multiplier
 **Logging Configuration:**
 ```bash
 LOG_LEVEL=INFO                 # DEBUG, INFO, WARNING, ERROR
-LOG_FILE=log/TradeBot.{date}.{time}.log  # Log file pattern
+LOG_TO_FILE=true              # Enable hourly rotating file logs
+
+# Hourly Log Rotation Behavior:
+# - Logs start in: TradeBot.log (current active log)
+# - Every hour at :00, current log is renamed to: TradeBot.MMDDYY.HH.log
+# - New TradeBot.log is created for the new hour
+# - Example: TradeBot.log -> TradeBot.100225.14.log at 3:00 PM
+# - Always check TradeBot.log for current activity
+# - Check archived logs (TradeBot.MMDDYY.HH.log) for historical analysis
 ```
 
 ## 🏃‍♂️ Quick Start Guide

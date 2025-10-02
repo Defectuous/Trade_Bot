@@ -1,7 +1,7 @@
-#1 Sort out a method to buy/sell partial shares
-#2 Buy share amount based on wallet's whole/liquid value
+x #1 Sort out a method to buy/sell partial shares
+x #2 Buy share amount based on wallet's whole/liquid value
 #3 Include strategies 
-#4 Split the amount of held shares vrs the total amount of wallet value
+x #4 Split the amount of held shares vrs the total amount of wallet value
 x #5 Include Discord & or Telegram support for tracking BUY/SELL actions & final metrics for End of Day
 x  - Including starting value of each stock [ Hourly ]
 x  - Wallet Growth/Loss at end of day

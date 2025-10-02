@@ -8,7 +8,7 @@
 # Run with: curl -sSL https://raw.githubusercontent.com/Defectuous/Trade_Bot/main/install_tradebot.sh | bash
 #
 # User Creation: Uses adduser with proper group assignments for Raspberry Pi compatibility
-# Groups: adm, dialout, cdrom, sudo, audio, video, plugdev, games, users, netdev, input
+# Groups: sudo
 
 set -e  # Exit on any error
 
@@ -118,17 +118,13 @@ else
         
         # Add user to necessary groups (similar to pi user groups)
         print_info "Adding user to necessary groups..."
-        print_info "Groups: adm, dialout, cdrom, sudo, audio, video, plugdev, games, users, netdev, input"
-        sudo usermod -a -G adm,dialout,cdrom,sudo,audio,video,plugdev,games,users,netdev,input "$TRADEBOT_USER"
+        print_info "Groups: sudo"
+        sudo usermod -a -G sudo "$TRADEBOT_USER"
         
         if [ $? -eq 0 ]; then
             print_status "User added to necessary groups successfully"
             print_info "User '$TRADEBOT_USER' now has access to:"
             print_info "• sudo privileges (can run commands as administrator)"
-            print_info "• Serial/USB devices (dialout, plugdev)"
-            print_info "• Audio/video hardware (audio, video)"
-            print_info "• Network interfaces (netdev)"
-            print_info "• System logs and administration (adm)"
         else
             print_warning "Some groups may not have been added successfully"
             print_info "You can verify groups with: groups $TRADEBOT_USER"

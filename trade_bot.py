@@ -84,16 +84,30 @@ def setup_file_logging():
 
         tz = pytz.timezone("US/Eastern")
 
-        def make_handler():
-            ts = datetime.now(tz).strftime("%m%d%y.%H")
-            log_filename = os.path.join(logs_dir, f"TradeBot.{ts}.log")
+        def make_current_handler():
+            """Create handler for current log file (TradeBot.log)."""
+            log_filename = os.path.join(logs_dir, "TradeBot.log")
             fh = logging.FileHandler(log_filename)
             fh.setLevel(LOG_LEVEL)
             fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
             return fh
 
+        def rename_current_log():
+            """Rename current log file to timestamped format."""
+            current_log = os.path.join(logs_dir, "TradeBot.log")
+            if os.path.exists(current_log):
+                try:
+                    # Use the previous hour's timestamp for the archived file
+                    prev_hour = datetime.now(tz) - timedelta(hours=1)
+                    ts = prev_hour.strftime("%m%d%y.%H")
+                    archived_log = os.path.join(logs_dir, f"TradeBot.{ts}.log")
+                    os.rename(current_log, archived_log)
+                    logger.info("Renamed log file: TradeBot.log -> TradeBot.%s.log", ts)
+                except Exception as e:
+                    logger.error("Failed to rename log file: %s", e)
+
         # Current file handler stored in a mutable container for rotation
-        file_handler = [make_handler()]
+        file_handler = [make_current_handler()]
         logger.addHandler(file_handler[0])
         logger.info("File logging enabled: %s", file_handler[0].baseFilename)
 
@@ -107,17 +121,22 @@ def setup_file_logging():
                     # Sleep until just after the hour boundary
                     time.sleep(max(1, sleep_secs + 1))
 
-                    new_h = make_handler()
-                    logger.addHandler(new_h)
-                    # Remove and close old handler
+                    # Close current handler before renaming file
                     old = file_handler[0]
                     logger.removeHandler(old)
                     try:
                         old.close()
                     except Exception:
                         pass
+
+                    # Rename current log to timestamped format
+                    rename_current_log()
+
+                    # Create new current log handler
+                    new_h = make_current_handler()
                     file_handler[0] = new_h
-                    logger.info("Rotated log file, new file: %s", file_handler[0].baseFilename)
+                    logger.addHandler(new_h)
+                    logger.info("Started new log file: %s", file_handler[0].baseFilename)
                 except Exception:
                     logger.exception("Log rotation failed")
                     # On failure, wait a minute before retrying
