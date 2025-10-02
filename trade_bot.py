@@ -97,12 +97,21 @@ def setup_file_logging():
             current_log = os.path.join(logs_dir, "TradeBot.log")
             if os.path.exists(current_log):
                 try:
-                    # Use the previous hour's timestamp for the archived file
-                    prev_hour = datetime.now(tz) - timedelta(hours=1)
-                    ts = prev_hour.strftime("%m%d%y.%H")
+                    # The log contains data from the hour that just ended
+                    # At rotation time (e.g., 10:00:01), we want to archive the log
+                    # with the timestamp of the hour it contains (09:xx data -> hour 09)
+                    now_et = datetime.now(tz)
+                    
+                    # Calculate the hour that just ended
+                    # This should be the current hour minus 1
+                    hour_that_ended = (now_et - timedelta(hours=1)).hour
+                    
+                    # Use current date and the hour that just ended
+                    date_part = now_et.strftime("%m%d%y")
+                    ts = f"{date_part}.{hour_that_ended:02d}"
                     archived_log = os.path.join(logs_dir, f"TradeBot.{ts}.log")
                     os.rename(current_log, archived_log)
-                    logger.info("Renamed log file: TradeBot.log -> TradeBot.%s.log", ts)
+                    logger.info("Renamed log file: TradeBot.log -> TradeBot.%s.log (contains hour %02d data)", ts, hour_that_ended)
                 except Exception as e:
                     logger.error("Failed to rename log file: %s", e)
 
