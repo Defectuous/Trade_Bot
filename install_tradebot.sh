@@ -1,8 +1,14 @@
 #!/bin/bash
 
 # Trade_Bot Raspberry Pi Installation Script
-# This script will install and configure the RSI->GPT->Alpaca Trading Bot
+# This script will install and configure the Enhanced Trading Bot with 7-indicator technical analysis
+# Features: RSI, MA, EMA, Pattern Analysis, ADX, ADXR, Candlestick Data -> GPT -> Alpaca Trading
+# Includes position concentration risk management and comprehensive safety features
+# 
 # Run with: curl -sSL https://raw.githubusercontent.com/Defectuous/Trade_Bot/main/install_tradebot.sh | bash
+#
+# User Creation: Uses adduser with proper group assignments for Raspberry Pi compatibility
+# Groups: adm, dialout, cdrom, sudo, audio, video, plugdev, games, users, netdev, input
 
 set -e  # Exit on any error
 
@@ -67,10 +73,16 @@ fi
 
 echo -e "${YELLOW}Step 1: Creating dedicated user account...${NC}"
 
+echo -e "${BLUE}User Creation Information:${NC}"
+echo "• Using 'adduser' for interactive password setup and proper home directory"
+echo "• Adding user to Raspberry Pi standard groups for hardware access"
+echo "• Groups: adm, dialout, cdrom, sudo, audio, video, plugdev, games, users, netdev, input"
+echo
+
 echo -e "${BLUE}Password Requirements:${NC}"
 echo "• Use a strong password (8+ characters recommended)"
 echo "• Include letters, numbers, and symbols"
-echo "• Type carefully - passwords must match exactly"
+echo "• You'll be prompted to set this during user creation"
 echo
 
 # Check if user already exists
@@ -96,74 +108,35 @@ if id "$TRADEBOT_USER" &>/dev/null; then
     fi
 else
     print_info "Creating user '$TRADEBOT_USER'..."
-    sudo useradd -m -s /bin/bash $TRADEBOT_USER
     
-    print_info "Setting password for user '$TRADEBOT_USER'..."
-    echo -e "${YELLOW}Password Options:${NC}"
-    echo "1. Set password interactively (recommended)"
-    echo "2. Generate random password"
-    echo "3. Skip password setting (set manually later)"
-    read -p "Choose [1-3, default: 1]: " password_choice
+    # Use adduser instead of useradd for better interactive setup
+    # The --gecos "" flag skips the full name prompts
+    sudo adduser --gecos "" "$TRADEBOT_USER"
     
-    case "$password_choice" in
-        "2")
-            # Generate random password
-            random_password=$(openssl rand -base64 12 2>/dev/null || tr -dc 'A-Za-z0-9!@#$%^&*' < /dev/urandom | head -c 12)
-            echo "$TRADEBOT_USER:$random_password" | sudo chpasswd
-            if [ $? -eq 0 ]; then
-                print_status "Password set successfully"
-                echo -e "${GREEN}Generated password for '$TRADEBOT_USER': ${YELLOW}$random_password${NC}"
-                echo -e "${RED}⚠️  IMPORTANT: Save this password securely! ${NC}"
-                echo -e "${YELLOW}Press Enter to continue after saving the password...${NC}"
-                read
-                password_set=true
-            else
-                print_error "Failed to set random password"
-                password_set=false
-            fi
-            ;;
-        "3")
-            print_warning "Skipping password setting"
-            print_info "You can set the password later with: sudo passwd $TRADEBOT_USER"
-            password_set=true
-            ;;
-        *)
-            # Interactive password setting (default)
-            echo -e "${YELLOW}Please set a secure password for user '$TRADEBOT_USER':${NC}"
-            
-            # Try to set password with retry logic
-            password_set=false
-            retry_count=0
-            max_retries=3
-            
-            while [ "$password_set" = false ] && [ $retry_count -lt $max_retries ]; do
-                if sudo passwd "$TRADEBOT_USER"; then
-                    password_set=true
-                    print_status "Password set successfully"
-                else
-                    retry_count=$((retry_count + 1))
-                    if [ $retry_count -lt $max_retries ]; then
-                        print_warning "Password setting failed. Please try again (attempt $((retry_count + 1))/$max_retries)."
-                        echo -e "${YELLOW}Tips:${NC}"
-                        echo "• Make sure passwords match exactly"
-                        echo "• Use 8+ characters with letters, numbers, and symbols"
-                        echo "• Avoid common passwords"
-                    else
-                        print_error "Failed to set password after $max_retries attempts."
-                        print_info "You can set the password manually later with: sudo passwd $TRADEBOT_USER"
-                        print_info "Continuing installation..."
-                        password_set=true
-                    fi
-                fi
-            done
-            ;;
-    esac
-    
-    # Add tradebot user to necessary groups
-    print_info "Adding user to necessary groups..."
-    sudo usermod -a -G sudo $TRADEBOT_USER
-    
-    print_status "User '$TRADEBOT_USER' created successfully"
+    if [ $? -eq 0 ]; then
+        print_status "User '$TRADEBOT_USER' created successfully"
+        
+        # Add user to necessary groups (similar to pi user groups)
+        print_info "Adding user to necessary groups..."
+        print_info "Groups: adm, dialout, cdrom, sudo, audio, video, plugdev, games, users, netdev, input"
+        sudo usermod -a -G adm,dialout,cdrom,sudo,audio,video,plugdev,games,users,netdev,input "$TRADEBOT_USER"
+        
+        if [ $? -eq 0 ]; then
+            print_status "User added to necessary groups successfully"
+            print_info "User '$TRADEBOT_USER' now has access to:"
+            print_info "• sudo privileges (can run commands as administrator)"
+            print_info "• Serial/USB devices (dialout, plugdev)"
+            print_info "• Audio/video hardware (audio, video)"
+            print_info "• Network interfaces (netdev)"
+            print_info "• System logs and administration (adm)"
+        else
+            print_warning "Some groups may not have been added successfully"
+            print_info "You can verify groups with: groups $TRADEBOT_USER"
+        fi
+    else
+        print_error "Failed to create user '$TRADEBOT_USER'"
+        exit 1
+    fi
 fi
 
 # Create function to run commands as tradebot user
