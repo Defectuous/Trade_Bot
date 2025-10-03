@@ -23,6 +23,23 @@ NC='\033[0m' # No Color
 GITHUB_REPO="https://github.com/Defectuous/Trade_Bot.git"  # Update this with your actual repo
 SERVICE_NAME="trade_bot.service"
 
+# Function to print status messages
+print_status() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+print_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
 echo -e "${BLUE}🚀 Trade_Bot Raspberry Pi Installation Script${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo -e "${YELLOW}This script will create a dedicated user account for security${NC}"
@@ -46,23 +63,6 @@ INSTALL_DIR="/home/$TRADEBOT_USER/Trade_Bot"
 print_info "Using username: '$TRADEBOT_USER'"
 print_info "Installation directory: $INSTALL_DIR"
 echo
-
-# Function to print status messages
-print_status() {
-    echo -e "${GREEN}✓${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}✗${NC} $1"
-}
-
-print_info() {
-    echo -e "${BLUE}ℹ${NC} $1"
-}
 
 # Check if running as root
 if [ "$EUID" -eq 0 ]; then
