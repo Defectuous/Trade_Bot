@@ -44,13 +44,30 @@ echo -e "${BLUE}🚀 Trade_Bot Raspberry Pi Installation Script${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo -e "${YELLOW}This script will create a dedicated user account for security${NC}"
 
+# Check if running in a non-interactive environment (like curl piping)
+if [ ! -t 0 ]; then
+    print_info "Non-interactive mode detected - using default configuration"
+    print_info "You can reconfigure settings after installation"
+    NONINTERACTIVE=true
+else
+    NONINTERACTIVE=false
+fi
+
 # Prompt for username
 echo -e "${BLUE}User Account Configuration:${NC}"
 echo "The bot will run under a dedicated user account for security."
 echo "Default username: 'tradebot'"
 echo
-read -p "Enter username for the trading bot [tradebot]: " custom_user
-TRADEBOT_USER=${custom_user:-tradebot}
+
+if [ "$NONINTERACTIVE" = true ]; then
+    # Non-interactive mode - use default
+    print_info "Using default username: 'tradebot'"
+    TRADEBOT_USER="tradebot"
+else
+    # Interactive mode - prompt for username
+    read -p "Enter username for the trading bot [tradebot]: " custom_user
+    TRADEBOT_USER=${custom_user:-tradebot}
+fi
 
 # Validate username
 if [[ ! "$TRADEBOT_USER" =~ ^[a-z][a-z0-9_-]*$ ]]; then
@@ -91,27 +108,49 @@ if id "$TRADEBOT_USER" &>/dev/null; then
     echo -e "${BLUE}Existing user information:${NC}"
     id "$TRADEBOT_USER"
     echo
-    read -p "Do you want to continue with existing user '$TRADEBOT_USER'? (y/n): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Installation cancelled"
-        print_info "You can run the script again and choose a different username"
-        exit 0
-    fi
     
-    # Ask if they want to change the password for existing user
-    read -p "Do you want to change the password for user '$TRADEBOT_USER'? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Changing password for existing user '$TRADEBOT_USER'..."
-        sudo passwd "$TRADEBOT_USER"
+    if [ "$NONINTERACTIVE" = true ]; then
+        print_info "Non-interactive mode: continuing with existing user '$TRADEBOT_USER'"
+    else
+        read -p "Do you want to continue with existing user '$TRADEBOT_USER'? (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Installation cancelled"
+            print_info "You can run the script again and choose a different username"
+            exit 0
+        fi
+        
+        # Ask if they want to change the password for existing user
+        read -p "Do you want to change the password for user '$TRADEBOT_USER'? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Changing password for existing user '$TRADEBOT_USER'..."
+            sudo passwd "$TRADEBOT_USER"
+        fi
     fi
 else
     print_info "Creating user '$TRADEBOT_USER'..."
     
-    # Use adduser instead of useradd for better interactive setup
-    # The --gecos "" flag skips the full name prompts
-    sudo adduser --gecos "" "$TRADEBOT_USER"
+    if [ "$NONINTERACTIVE" = true ]; then
+        # Non-interactive user creation with default password that must be changed
+        print_info "Non-interactive mode: creating user with default password"
+        print_warning "You MUST change the password after installation!"
+        
+        # Create user with disabled password (will be prompted to set it)
+        sudo adduser --disabled-password --gecos "" "$TRADEBOT_USER"
+        
+        # Set a temporary password and force change on first login
+        echo "$TRADEBOT_USER:tradebot123" | sudo chpasswd
+        sudo chage -d 0 "$TRADEBOT_USER"
+        
+        print_warning "Temporary password set to: tradebot123"
+        print_warning "User will be forced to change password on first login"
+    else
+        # Interactive user creation
+        # Use adduser instead of useradd for better interactive setup
+        # The --gecos "" flag skips the full name prompts
+        sudo adduser --gecos "" "$TRADEBOT_USER"
+    fi
     
     if [ $? -eq 0 ]; then
         print_status "User '$TRADEBOT_USER' created successfully"
@@ -166,13 +205,18 @@ print_info "Switching to tradebot user environment..."
 # Check if directory already exists
 if [ -d "$INSTALL_DIR" ]; then
     print_warning "Trade_Bot directory already exists at $INSTALL_DIR"
-    read -p "Do you want to remove it and reinstall? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        sudo rm -rf "$INSTALL_DIR"
-        print_info "Removed existing installation"
+    
+    if [ "$NONINTERACTIVE" = true ]; then
+        print_info "Non-interactive mode: using existing directory"
     else
-        print_info "Using existing directory"
+        read -p "Do you want to remove it and reinstall? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            sudo rm -rf "$INSTALL_DIR"
+            print_info "Removed existing installation"
+        else
+            print_info "Using existing directory"
+        fi
     fi
 fi
 
@@ -209,23 +253,70 @@ echo -e "${YELLOW}Step 5: Configuring environment variables (.env file)...${NC}"
 # Create .env file from template as tradebot user
 if sudo -u $TRADEBOT_USER [ -f "$INSTALL_DIR/.env" ]; then
     print_warning "Existing .env file found"
-    read -p "Do you want to reconfigure it? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        run_as_tradebot "cd $INSTALL_DIR && mv .env .env.backup"
-        print_info "Backed up existing .env file to .env.backup"
-    else
-        print_info "Keeping existing .env file"
+    
+    if [ "$NONINTERACTIVE" = true ]; then
+        print_info "Non-interactive mode: keeping existing .env file"
         ENV_EXISTS=true
+    else
+        read -p "Do you want to reconfigure it? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            run_as_tradebot "cd $INSTALL_DIR && mv .env .env.backup"
+            print_info "Backed up existing .env file to .env.backup"
+        else
+            print_info "Keeping existing .env file"
+            ENV_EXISTS=true
+        fi
     fi
 fi
 
 if [ "$ENV_EXISTS" != true ]; then
-    run_as_tradebot "cd $INSTALL_DIR && cp .env.example .env"
+    if [ -f "$INSTALL_DIR/.env.example" ]; then
+        run_as_tradebot "cd $INSTALL_DIR && cp .env.example .env"
+    else
+        print_warning ".env.example not found, creating basic .env file"
+        run_as_tradebot "cat > $INSTALL_DIR/.env << 'EOL'
+# TAAPI.io API Key (required for technical indicators)
+TAAPI_KEY=
+
+# OpenAI API Configuration
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-3.5-turbo
+
+# Alpaca Trading API Configuration
+ALPACA_API_KEY=
+ALPACA_SECRET_KEY=
+ALPACA_BASE_URL=https://paper-api.alpaca.markets
+
+# Trading Configuration
+SYMBOL=AAPL
+QTY=1
+DRY_RUN=true
+
+# Discord Notifications (Optional)
+DISCORD_WEBHOOK_URL=
+
+# Technical Indicator Configuration
+MA_PERIOD=20
+EMA_PERIOD=12
+ADX_PERIOD=14
+ADXR_PERIOD=14
+
+# Technical Indicator Enable/Disable
+ENABLE_RSI=true
+ENABLE_MA=true
+ENABLE_EMA=true
+ENABLE_PATTERN=true
+ENABLE_ADX=true
+ENABLE_ADXR=true
+ENABLE_CANDLE=true
+EOL"
+    fi
     
-    echo -e "${BLUE}Please provide your API keys and configuration:${NC}"
-    echo -e "${YELLOW}You can press Enter to skip optional fields${NC}"
-    echo
+    if [ "$NONINTERACTIVE" = true ]; then
+        print_info "Non-interactive mode: .env file created with default settings"
+        print_info "Edit $INSTALL_DIR/.env to configure your API keys after installation"
+    else
     
     # TAAPI Key
     echo -e "${BLUE}TAAPI.io Configuration:${NC}"
@@ -306,6 +397,8 @@ if [ "$ENV_EXISTS" != true ]; then
         print_warning "LIVE TRADING MODE ENABLED - Trades will be executed!"
     fi
     
+    fi  # End interactive mode
+    
     print_status "Environment configuration completed"
 fi
 
@@ -378,14 +471,39 @@ print_status "Installation test completed"
 echo -e "${GREEN}🎉 TradeBot Installation Complete!${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo
+
+if [ "$NONINTERACTIVE" = true ]; then
+    echo -e "${YELLOW}⚠ IMPORTANT: Configure API Keys Before Starting${NC}"
+    echo
+    echo -e "${BLUE}1. 🔧 Configure your API keys:${NC}"
+    echo "   sudo -u $TRADEBOT_USER nano $INSTALL_DIR/.env"
+    echo
+    echo -e "${YELLOW}Required API Keys:${NC}"
+    echo "• TAAPI_KEY - Get from https://taapi.io (~\$15/month for technical indicators)"
+    echo "• OPENAI_API_KEY - Get from https://platform.openai.com (pay-per-use)"
+    echo "• ALPACA_API_KEY & ALPACA_SECRET_KEY - Get from https://alpaca.markets (free paper trading)"
+    echo
+    echo -e "${YELLOW}Optional Settings:${NC}"
+    echo "• DISCORD_WEBHOOK_URL - For trade notifications"
+    echo "• SYMBOL - Change from AAPL to your preferred stock"
+    echo "• QTY - Adjust quantity per trade"
+    echo
+fi
+
 echo -e "${YELLOW}Security Features Implemented:${NC}"
-echo "• ✅ Dedicated 'tradebot' user account created"
-echo "• ✅ Restricted file permissions (.env readable only by tradebot)"
+echo "• ✅ Dedicated '$TRADEBOT_USER' user account created"
+echo "• ✅ Restricted file permissions (.env readable only by $TRADEBOT_USER)"
 echo "• ✅ Systemd security hardening (NoNewPrivileges, PrivateTmp, etc.)"
 echo "• ✅ Resource limits (512MB memory, 1024 file handles)"
 echo "• ✅ Bot runs with minimal privileges"
+echo "• ✅ DRY_RUN mode enabled by default (safe for testing)"
 echo
-echo -e "${YELLOW}Next Steps:${NC}"
+
+if [ "$NONINTERACTIVE" = true ]; then
+    echo -e "${YELLOW}Next Steps (After configuring API keys):${NC}"
+else
+    echo -e "${YELLOW}Next Steps:${NC}"
+fi
 echo
 echo "1. 📊 Verify your configuration as tradebot user:"
 echo "   sudo -u $TRADEBOT_USER nano $INSTALL_DIR/.env"
