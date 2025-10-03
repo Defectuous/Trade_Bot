@@ -5,6 +5,21 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("⚠️ python-dotenv not installed, trying to read .env manually")
+    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value
+
 from modules.taapi import (
     fetch_volume_taapi, 
     fetch_bbands_taapi, 
@@ -57,7 +72,7 @@ def test_new_indicators():
             print(f"✅ DMI:")
             print(f"   DI+ (Plus): {dmi['di_plus']}")
             print(f"   DI- (Minus): {dmi['di_minus']}")
-            print(f"   DX: {dmi['dx']}")
+            print(f"   ADX: {dmi['adx']}")
         else:
             print("❌ DMI: Failed to fetch")
     except Exception as e:
@@ -84,7 +99,7 @@ def test_new_indicators():
             print(f"   📈 BBands: U:{bbands['upper']} M:{bbands['middle']} L:{bbands['lower']}")
         if all_indicators.get('dmi'):
             dmi = all_indicators['dmi']
-            print(f"   🎯 DMI: DI+:{dmi['di_plus']} DI-:{dmi['di_minus']} DX:{dmi['dx']}")
+            print(f"   🎯 DMI: DI+:{dmi['di_plus']} DI-:{dmi['di_minus']} ADX:{dmi['adx']}")
             
     except Exception as e:
         print(f"❌ fetch_all_indicators error: {e}")

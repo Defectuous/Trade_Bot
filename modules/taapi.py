@@ -203,8 +203,8 @@ def fetch_bbands_taapi(symbol: str, taapi_key: str, period: int = 20, interval: 
 def fetch_dmi_taapi(symbol: str, taapi_key: str, period: int = 14, interval: str = "1m", timeout: int = 10) -> Optional[Dict[str, Decimal]]:
     """Fetch DMI (Directional Movement Index) for `symbol` from taapi.io.
     
-    Returns a dictionary with DI+, DI-, and DX values as Decimals.
-    Example return: {'di_plus': Decimal('25.30'), 'di_minus': Decimal('18.75'), 'dx': Decimal('14.80')}
+    Returns a dictionary with DI+, DI-, and ADX values as Decimals.
+    Example return: {'di_plus': Decimal('25.30'), 'di_minus': Decimal('18.75'), 'adx': Decimal('14.80')}
     """
     if not taapi_key:
         return None
@@ -215,12 +215,12 @@ def fetch_dmi_taapi(symbol: str, taapi_key: str, period: int = 14, interval: str
         resp.raise_for_status()
         data = resp.json()
         
-        # TAAPI dmi endpoint returns DI+, DI-, and DX
-        if all(key in data for key in ['valueDIPlus', 'valueDIMinus', 'valueDX']):
+        # TAAPI dmi endpoint returns adx, pdi (Plus DI), mdi (Minus DI)
+        if all(key in data for key in ['adx', 'pdi', 'mdi']):
             return {
-                'di_plus': Decimal(str(data['valueDIPlus'])),
-                'di_minus': Decimal(str(data['valueDIMinus'])), 
-                'dx': Decimal(str(data['valueDX']))
+                'di_plus': Decimal(str(data['pdi'])),
+                'di_minus': Decimal(str(data['mdi'])), 
+                'adx': Decimal(str(data['adx']))
             }
     except Exception:
         return None

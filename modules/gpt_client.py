@@ -54,7 +54,7 @@ def ask_gpt_for_decision(openai_api_key: str, model: str, indicators: Dict[str, 
         'candle': {'value': indicators.get('candle'), 'desc': 'Candlestick Data (OHLC)', 'guide': '[Open/High/Low/Close for price action analysis]'},
         'volume': {'value': indicators.get('volume'), 'desc': 'Volume', 'guide': '[Trading volume indicates strength of price moves]'},
         'bbands': {'value': indicators.get('bbands'), 'desc': 'Bollinger Bands', 'guide': '[Upper/Middle/Lower bands for volatility and support/resistance]'},
-        'dmi': {'value': indicators.get('dmi'), 'desc': 'DMI (Directional Movement Index)', 'guide': '[DI+/DI-/DX for trend direction and strength]'}
+        'dmi': {'value': indicators.get('dmi'), 'desc': 'DMI (Directional Movement Index)', 'guide': '[DI+/DI-/ADX for trend direction and strength]'}
     }
     
     # Build list of valid indicators (not None, not 'N/A', not empty)
@@ -73,8 +73,8 @@ def ask_gpt_for_decision(openai_api_key: str, model: str, indicators: Dict[str, 
                     valid_indicators.append(f"• {indicator_info['desc']}: {bbands_str} {indicator_info['guide']}")
             # Special formatting for DMI
             elif indicator_name == 'dmi' and isinstance(value, dict):
-                if all(k in value for k in ['di_plus', 'di_minus', 'dx']):
-                    dmi_str = f"DI+:{value['di_plus']} DI-:{value['di_minus']} DX:{value['dx']}"
+                if all(k in value for k in ['di_plus', 'di_minus', 'adx']):
+                    dmi_str = f"DI+:{value['di_plus']} DI-:{value['di_minus']} ADX:{value['adx']}"
                     valid_indicators.append(f"• {indicator_info['desc']}: {dmi_str} {indicator_info['guide']}")
             else:
                 valid_indicators.append(f"• {indicator_info['desc']}: {value} {indicator_info['guide']}")
