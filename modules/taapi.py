@@ -1,7 +1,7 @@
 """TAAPI helper: fetch technical indicators via the taapi.io API.
 
 This module provides wrappers around TAAPI that return technical indicators as Decimals.
-Supports RSI, MA, EMA, Three Black Crows pattern, ADX, ADXR, and Candlestick data indicators.
+Supports RSI, MA, EMA, Three Black Crows pattern, ADX, ADXR, Candlestick data, Volume, Bollinger Bands, and DMI indicators.
 """
 from decimal import Decimal
 import requests
@@ -153,6 +153,80 @@ def fetch_candle_taapi(symbol: str, taapi_key: str, interval: str = "1m", timeou
     return None
 
 
+def fetch_volume_taapi(symbol: str, taapi_key: str, interval: str = "1m", timeout: int = 10) -> Optional[Decimal]:
+    """Fetch Volume for `symbol` from taapi.io.
+    
+    Returns the trading volume as a Decimal on success, or None if taapi_key is missing or an error occurs.
+    """
+    if not taapi_key:
+        return None
+    url = "https://api.taapi.io/volume"
+    params = {"secret": taapi_key, "symbol": symbol, "interval": interval, "type": "stocks"}
+    try:
+        resp = requests.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        if "value" in data:
+            return Decimal(str(data["value"]))
+    except Exception:
+        return None
+    return None
+
+
+def fetch_bbands_taapi(symbol: str, taapi_key: str, period: int = 20, interval: str = "1m", timeout: int = 10) -> Optional[Dict[str, Decimal]]:
+    """Fetch Bollinger Bands for `symbol` from taapi.io.
+    
+    Returns a dictionary with upper, middle, and lower bands as Decimals.
+    Example return: {'upper': Decimal('452.50'), 'middle': Decimal('450.00'), 'lower': Decimal('447.50')}
+    """
+    if not taapi_key:
+        return None
+    url = "https://api.taapi.io/bbands"
+    params = {"secret": taapi_key, "symbol": symbol, "interval": interval, "type": "stocks", "period": period}
+    try:
+        resp = requests.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # TAAPI bbands endpoint returns upper, middle, lower bands
+        if all(key in data for key in ['valueUpperBand', 'valueMiddleBand', 'valueLowerBand']):
+            return {
+                'upper': Decimal(str(data['valueUpperBand'])),
+                'middle': Decimal(str(data['valueMiddleBand'])), 
+                'lower': Decimal(str(data['valueLowerBand']))
+            }
+    except Exception:
+        return None
+    return None
+
+
+def fetch_dmi_taapi(symbol: str, taapi_key: str, period: int = 14, interval: str = "1m", timeout: int = 10) -> Optional[Dict[str, Decimal]]:
+    """Fetch DMI (Directional Movement Index) for `symbol` from taapi.io.
+    
+    Returns a dictionary with DI+, DI-, and DX values as Decimals.
+    Example return: {'di_plus': Decimal('25.30'), 'di_minus': Decimal('18.75'), 'dx': Decimal('14.80')}
+    """
+    if not taapi_key:
+        return None
+    url = "https://api.taapi.io/dmi"
+    params = {"secret": taapi_key, "symbol": symbol, "interval": interval, "type": "stocks", "period": period}
+    try:
+        resp = requests.get(url, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # TAAPI dmi endpoint returns DI+, DI-, and DX
+        if all(key in data for key in ['valueDIPlus', 'valueDIMinus', 'valueDX']):
+            return {
+                'di_plus': Decimal(str(data['valueDIPlus'])),
+                'di_minus': Decimal(str(data['valueDIMinus'])), 
+                'dx': Decimal(str(data['valueDX']))
+            }
+    except Exception:
+        return None
+    return None
+
+
 def fetch_all_indicators(symbol: str, taapi_key: str, interval: str = "1m") -> Dict[str, Any]:
     """Fetch all technical indicators for a symbol.
     
@@ -168,6 +242,8 @@ def fetch_all_indicators(symbol: str, taapi_key: str, interval: str = "1m") -> D
     ema_period = int(os.getenv('EMA_PERIOD', 12))
     adx_period = int(os.getenv('ADX_PERIOD', 14))
     adxr_period = int(os.getenv('ADXR_PERIOD', 14))
+    bbands_period = int(os.getenv('BBANDS_PERIOD', 20))
+    dmi_period = int(os.getenv('DMI_PERIOD', 14))
     
     # Get indicator enable/disable flags from environment variables
     def is_indicator_enabled(indicator_name: str) -> bool:
@@ -270,6 +346,45 @@ def fetch_all_indicators(symbol: str, taapi_key: str, interval: str = "1m") -> D
     else:
         indicators['candle'] = None
         disabled_indicators.append('Candle')
+    
+    if is_indicator_enabled('volume'):
+        try:
+            indicators['volume'] = fetch_volume_taapi(symbol, taapi_key, interval)
+            if indicators['volume'] is None:
+                failed_indicators.append('Volume')
+        except Exception as e:
+            logger.debug("Volume fetch failed for %s: %s", symbol, e)
+            indicators['volume'] = None
+            failed_indicators.append('Volume')
+    else:
+        indicators['volume'] = None
+        disabled_indicators.append('Volume')
+    
+    if is_indicator_enabled('bbands'):
+        try:
+            indicators['bbands'] = fetch_bbands_taapi(symbol, taapi_key, bbands_period, interval)
+            if indicators['bbands'] is None:
+                failed_indicators.append('BBands')
+        except Exception as e:
+            logger.debug("BBands fetch failed for %s: %s", symbol, e)
+            indicators['bbands'] = None
+            failed_indicators.append('BBands')
+    else:
+        indicators['bbands'] = None
+        disabled_indicators.append('BBands')
+    
+    if is_indicator_enabled('dmi'):
+        try:
+            indicators['dmi'] = fetch_dmi_taapi(symbol, taapi_key, dmi_period, interval)
+            if indicators['dmi'] is None:
+                failed_indicators.append('DMI')
+        except Exception as e:
+            logger.debug("DMI fetch failed for %s: %s", symbol, e)
+            indicators['dmi'] = None
+            failed_indicators.append('DMI')
+    else:
+        indicators['dmi'] = None
+        disabled_indicators.append('DMI')
     
     # Log summary of successful, failed, and disabled indicators
     successful_indicators = [name.upper() for name, value in indicators.items() if value is not None]

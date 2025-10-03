@@ -51,7 +51,10 @@ def ask_gpt_for_decision(openai_api_key: str, model: str, indicators: Dict[str, 
         'pattern': {'value': indicators.get('pattern'), 'desc': 'Pattern Analysis (Three Black Crows)', 'guide': '[STRONG_BEARISH/BEARISH/NEUTRAL/BULLISH/STRONG_BULLISH]'},
         'adx': {'value': indicators.get('adx'), 'desc': 'ADX (Average Directional Index)', 'guide': '[Trend strength: >25 strong, <20 weak]'},
         'adxr': {'value': indicators.get('adxr'), 'desc': 'ADXR (Average Directional Index Rating)', 'guide': '[Trend stability indicator]'},
-        'candle': {'value': indicators.get('candle'), 'desc': 'Candlestick Data (OHLC)', 'guide': '[Open/High/Low/Close for price action analysis]'}
+        'candle': {'value': indicators.get('candle'), 'desc': 'Candlestick Data (OHLC)', 'guide': '[Open/High/Low/Close for price action analysis]'},
+        'volume': {'value': indicators.get('volume'), 'desc': 'Volume', 'guide': '[Trading volume indicates strength of price moves]'},
+        'bbands': {'value': indicators.get('bbands'), 'desc': 'Bollinger Bands', 'guide': '[Upper/Middle/Lower bands for volatility and support/resistance]'},
+        'dmi': {'value': indicators.get('dmi'), 'desc': 'DMI (Directional Movement Index)', 'guide': '[DI+/DI-/DX for trend direction and strength]'}
     }
     
     # Build list of valid indicators (not None, not 'N/A', not empty)
@@ -63,6 +66,16 @@ def ask_gpt_for_decision(openai_api_key: str, model: str, indicators: Dict[str, 
                 if all(k in value for k in ['open', 'high', 'low', 'close']):
                     candle_str = f"O:{value['open']} H:{value['high']} L:{value['low']} C:{value['close']}"
                     valid_indicators.append(f"• {indicator_info['desc']}: {candle_str} {indicator_info['guide']}")
+            # Special formatting for Bollinger Bands
+            elif indicator_name == 'bbands' and isinstance(value, dict):
+                if all(k in value for k in ['upper', 'middle', 'lower']):
+                    bbands_str = f"Upper:{value['upper']} Middle:{value['middle']} Lower:{value['lower']}"
+                    valid_indicators.append(f"• {indicator_info['desc']}: {bbands_str} {indicator_info['guide']}")
+            # Special formatting for DMI
+            elif indicator_name == 'dmi' and isinstance(value, dict):
+                if all(k in value for k in ['di_plus', 'di_minus', 'dx']):
+                    dmi_str = f"DI+:{value['di_plus']} DI-:{value['di_minus']} DX:{value['dx']}"
+                    valid_indicators.append(f"• {indicator_info['desc']}: {dmi_str} {indicator_info['guide']}")
             else:
                 valid_indicators.append(f"• {indicator_info['desc']}: {value} {indicator_info['guide']}")
     
@@ -105,6 +118,12 @@ def ask_gpt_for_decision(openai_api_key: str, model: str, indicators: Dict[str, 
         if any('Candlestick Data' in ind for ind in valid_indicators):
             trading_guidelines.append("• Use OHLC data for price action analysis (doji, hammer, engulfing patterns)")
             trading_guidelines.append("• Compare current price vs Open/High/Low for intraday momentum")
+        if any('Volume' in ind for ind in valid_indicators):
+            trading_guidelines.append("• Volume analysis for confirming price move strength and breakouts")
+        if any('Bollinger Bands' in ind for ind in valid_indicators):
+            trading_guidelines.append("• Bollinger Bands for volatility and support/resistance (price near upper=resistance, lower=support)")
+        if any('DMI' in ind for ind in valid_indicators):
+            trading_guidelines.append("• DMI directional analysis (DI+ > DI- = bullish trend, DI- > DI+ = bearish trend)")
         
         # Default guideline if no specific ones apply
         if not trading_guidelines:
